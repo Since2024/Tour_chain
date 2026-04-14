@@ -1,9 +1,13 @@
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui'
 import { Link, useLocation } from 'react-router-dom'
 import { useState, useEffect } from 'react'
+import { useWallet } from '@solana/wallet-adapter-react'
+
+const ADMIN_WALLET = 'DDziwsKXB4FTGj1B3kXw5uTD2Yp9HdWjwXphgHJxUzvf'
 
 export default function Navbar() {
   const location = useLocation()
+  const { publicKey } = useWallet()
   const [scrolled, setScrolled] = useState(false)
 
   useEffect(() => {
@@ -12,12 +16,18 @@ export default function Navbar() {
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
+  const isAdmin = publicKey?.toString() === ADMIN_WALLET
+
   const navLinks = [
     { name: 'Explore', path: '/' },
     { name: 'Scan QR', path: '/scan' },
     { name: 'My NFTs', path: '/nfts' },
-    { name: 'Leaderboard', path: '/leaderboard' },
   ]
+
+  // Only add Leaderboard if user is Admin
+  if (isAdmin) {
+    navLinks.push({ name: 'Leaderboard', path: '/leaderboard' })
+  }
 
   return (
     <>
