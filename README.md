@@ -1,22 +1,23 @@
-# Tourism Chain Nepal
+# TourChain
 
-**A Solana-powered decentralized tourism ecosystem — connecting trekkers, local operators, and the Himalayan wilderness on-chain.**
+**A trust-first adventure tourism platform for Nepal — verified guides, escrow-protected bookings, and on-chain proof of every journey.**
 
-Built for the [Colosseum Hackathon](https://www.colosseum.org/).
+Built for the [Colosseum Hackathon](https://www.colosseum.org/) · Powered by Solana
 
 ---
 
 ## Table of Contents
 
 - [Overview](#overview)
+- [What It Solves](#what-it-solves)
 - [Architecture](#architecture)
-- [Smart Contracts](#smart-contracts)
+- [Solana Programs](#solana-programs)
 - [Tech Stack](#tech-stack)
 - [Repository Structure](#repository-structure)
 - [Getting Started](#getting-started)
 - [Program Addresses](#program-addresses)
 - [Core Flows](#core-flows)
-- [SDK](#sdk)
+- [Data Model](#data-model)
 - [Environment Variables](#environment-variables)
 - [Roadmap](#roadmap)
 - [Contributing](#contributing)
@@ -26,225 +27,164 @@ Built for the [Colosseum Hackathon](https://www.colosseum.org/).
 
 ## Overview
 
-Tourism Chain Nepal reimagines how adventure tourism operates in Nepal by eliminating trust friction between tourists and local operators through transparent, programmable on-chain infrastructure.
+TourChain turns Nepal's $2.4B trekking economy — which runs on paper permits, cash payments, and word-of-mouth trust — into a structured, verifiable, and scam-resistant system.
 
-**The problems it solves:**
+It is **not** a blockchain app that happens to involve tourism. It is a tourism product that uses Solana where it genuinely solves trust, verification, and proof problems that web2 cannot.
 
-| Problem | Solution |
-|---|---|
-| Operators vanish with deposits | Milestone-based USDC escrow — funds release in 3 tranches as the trek progresses |
-| Fake reviews and unverifiable credentials | On-chain reputation scores, staked deposits, and DAO-governed operator verification |
-| No proof of adventure | Compressed NFT badges minted at GPS-verified trail checkpoints |
-| Carbon-blind travel | Per-booking CO₂ footprint tracking with on-chain offset retirement |
-| No safety net at altitude | Parametric SOS insurance — trigger a rescue and receive automatic payout above 5,000m |
-| Loyalty programs that disappear | `$TREK` token with time-locked staking that accrues governance weight |
+Think Komoot meets Duolingo meets Airbnb Experiences — with Solana as the trust backbone and Nepal as the proving ground.
+
+---
+
+## What It Solves
+
+| Problem | Current Reality | TourChain Solution |
+|---|---|---|
+| Guide trust | TripAdvisor reviews — platform-owned, gameable | On-chain reputation PDAs that guides own forever |
+| Booking safety | Pay cash upfront, hope for the best | Milestone-based escrow, funds release as trek progresses |
+| Proof of completion | Instagram selfie | GPS-verified, guide-signed cNFT minted to your wallet |
+| Route discovery | Scattered blog posts | Structured quest system with story-driven checkpoints |
+| Commission extraction | Viator/OTAs take 20–25% | Platform fee of 3–5%, rest goes directly to the guide |
+| Scam prevention | None | Admin-verified operators, transparent review history |
+
+Nepal's trekking economy loses 30–40% to corruption and administrative friction. Guides build decade-long reputations on platforms they don't own. Porters get shorted with no recourse. TourChain fixes this by making trust data portable, payments transparent, and achievements verifiable.
 
 ---
 
 ## Architecture
 
 ```
-┌──────────────────────────────────────────────────────────────────────┐
-│                          User Browser                                │
-│                   Next.js 16 · Tailwind CSS 4                        │
-│               Phantom Wallet Adapter · Mapbox GL                     │
-└────────────────────────────┬─────────────────────────────────────────┘
-                             │ HTTPS / WS
-             ┌───────────────┴───────────────┐
-             │                               │
-   ┌─────────▼──────────┐        ┌──────────▼──────────────┐
-   │   Express.js API   │        │     Solana Devnet RPC    │
-   │   (port 3001)      │        │  (@solana/web3.js direct)│
-   │                    │        └──────────┬───────────────┘
-   │  ┌──────────────┐  │                   │
-   │  │  MongoDB     │  │        ┌──────────▼───────────────┐
-   │  │  (Mongoose)  │  │        │    Anchor Programs (9)   │
-   │  └──────────────┘  │        │                          │
-   │                    │        │  tourism_registry  ✅    │
-   │  ┌──────────────┐  │        │  booking_escrow    🔨    │
-   │  │ QR Service   │◄─┼────────│  experience_nft    🔨    │
-   │  │ HMAC-SHA256  │  │        │  loyalty_token     🔨    │
-   │  └──────────────┘  │        │  dao_governance    🔨    │
-   │                    │        │  route_registry    🔨    │
-   │  ┌──────────────┐  │        │  carbon_credits    🔨    │
-   │  │  Bubblegum   │◄─┼────────│  pricing_oracle    🔨    │
-   │  │  Service     │  │        │  sos_insurance     🔨    │
-   │  └──────────────┘  │        └──────────────────────────┘
-   └────────────────────┘                   │
-                                            │ Metaplex Bubblegum CPI
-                                 ┌──────────▼───────────────┐
-                                 │   Merkle Tree (cNFTs)    │
-                                 │   Experience Badges      │
-                                 └──────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                         FRONTEND                             │
+│   Next.js 15 · TypeScript · Tailwind CSS · shadcn/ui        │
+│                                                              │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐        │
+│  │ Quest Map│ │ Booking  │ │ Guide    │ │  Admin   │        │
+│  │ + Routes │ │  Flow    │ │ Profile  │ │  Panel   │        │
+│  └────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘        │
+│       └────────────┴────────────┴────────────┘               │
+│              Wallet Adapter (Phantom / Solflare)              │
+└───────────────────────────┬─────────────────────────────────┘
+                            │
+           ┌────────────────┼──────────────────┐
+           │                │                  │
+           ▼                ▼                  ▼
+┌─────────────────┐ ┌──────────────┐ ┌────────────────┐
+│    Supabase     │ │  Supabase    │ │   Solana       │
+│    Postgres     │ │  Edge Fns    │ │   Devnet/Main  │
+│                 │ │              │ │                │
+│ • Users         │ │ • TX relay   │ │ • Reputation   │
+│ • Quests        │ │ • Webhook    │ │   PDA          │
+│ • Bookings      │ │   handlers   │ │ • Escrow PDA   │
+│ • Reviews       │ │ • Solana     │ │ • Completion   │
+│ • Check-ins     │ │   verify     │ │   cNFT mint    │
+│ • Disputes      │ └──────┬───────┘ └───────┬────────┘
+│ • Places        │        │                 │
+│ • Routes        │        └────────┐        │
+│                 │                 ▼        ▼
+│  + RLS          │         ┌──────────────────┐
+│  + Realtime     │         │     Arweave      │
+│  + Storage      │         │  (NFT metadata)  │
+└─────────────────┘         └──────────────────┘
 ```
 
-> ✅ Deployed to devnet · 🔨 Implemented, pending deployment
+### On-chain vs Off-chain
 
-### Data Flow — Booking Lifecycle
+| Data | Location | Reason |
+|---|---|---|
+| Guide reputation score | On-chain (PDA) | Portable, tamper-proof, owned by guide |
+| Booking escrow | On-chain (PDA) | Trustless payment — neither party can cheat |
+| Completion proof | On-chain (cNFT) | Permanent, verifiable, collectible |
+| Quest definitions | Off-chain (Supabase) | Frequently updated, no trust requirement |
+| User profiles | Off-chain (Supabase) | Personal data, GDPR, frequent updates |
+| Reviews | Off-chain (Supabase) + on-chain summary | Full text off-chain, aggregated score on-chain |
+| Bookings / check-ins | Off-chain (Supabase) | Fast writes, metadata, contact info |
 
+**The principle:** Put data on-chain only when it needs to be trustless, portable, or permanently verifiable. Everything else stays in Postgres — fast, cheap, queryable.
+
+---
+
+## Solana Programs
+
+Three programs. Not nine. Each handles only what requires trustlessness.
+
+### `tourchain_reputation` — Guide Identity & Reputation
+
+The most valuable thing a guide owns is their reputation. This program stores it in a PDA they control — portable across any platform that reads Solana state.
+
+| Instruction | Signer | Description |
+|---|---|---|
+| `initialize_guide` | Admin | Create a reputation PDA for a verified guide |
+| `update_reputation` | Admin | Add a review score, increment completion count |
+| `suspend_guide` | Admin | Set `is_suspended = true` |
+| `reinstate_guide` | Admin | Set `is_suspended = false` |
+
+**PDA seeds:** `["guide", guide_wallet]`
+
+---
+
+### `tourchain_escrow` — Milestone-Based Booking Payments
+
+Funds leave the tourist's wallet and only reach the guide as the trek progresses. Neither party can cheat. No intermediary holds the money.
+
+| Instruction | Signer | Description |
+|---|---|---|
+| `create_escrow` | Tourist | Initialize escrow PDA, transfer SOL to vault |
+| `activate` | Guide | Guide accepts the booking |
+| `release_milestone` | Guide + Tourist | Release 1/N of funds; both must sign (or admin override) |
+| `complete_booking` | Guide + Tourist | Release remaining funds, mark completed |
+| `open_dispute` | Tourist or Guide | Freeze releases, flag for admin review |
+| `resolve_dispute` | Admin | Split remaining funds per admin decision |
+| `cancel_booking` | Tourist | Full refund if guide hasn't accepted yet |
+
+**BookingStatus FSM:** `Funded → Active → Completed | Disputed | Refunded | Cancelled`
+
+**PDA seeds:** `["escrow", tourist, guide, created_at]`
+
+---
+
+### `tourchain_proof` — Compressed NFT Completion Proofs
+
+Every completed trek is minted as a Metaplex Bubblegum cNFT — permanent, verifiable, collectible. Cost: ~$0.00001 per mint.
+
+| Instruction | Signer | Description |
+|---|---|---|
+| `initialize_tree` | Admin | Create Merkle tree for cNFT minting |
+| `mint_completion_proof` | Admin | CPI to Bubblegum — mint cNFT to tourist wallet |
+
+Only the platform admin can mint, and only after verifying completion via Supabase check-in records and guide co-signature. No fake proofs.
+
+**Example cNFT metadata:**
+```json
+{
+  "name": "Annapurna Circuit Completion",
+  "symbol": "TREK",
+  "attributes": [
+    { "trait_type": "Route", "value": "Annapurna Circuit" },
+    { "trait_type": "Duration", "value": "14 days" },
+    { "trait_type": "Guide", "value": "Ram Gurung" },
+    { "trait_type": "Completed", "value": "2026-04-15" },
+    { "trait_type": "Checkpoints", "value": "12/12" }
+  ]
+}
 ```
-Tourist                      Platform                    Operator
-   │                            │                           │
-   │── connect wallet ─────────►│                           │
-   │── search operators ────────►│◄── registered on-chain ──│
-   │                            │                           │
-   │── create_booking() ────────►│  lock USDC in PDA vault  │
-   │                            │                           │
-   │                  ◄── confirmed ──────────────────────►│
-   │                            │                           │
-   │      [Trek day 1]          │                           │
-   │── check_in at checkpoint ─►│── release_milestone(0) ──►│ +30% USDC
-   │   ← cNFT badge minted ─────│                           │
-   │                            │                           │
-   │      [Trek day 3]          │                           │
-   │── check_in at camp ────────►│── release_milestone(1) ──►│ +40% USDC
-   │                            │                           │
-   │      [Trek complete]       │                           │
-   │── complete_booking() ──────►│── release_milestone(2) ──►│ +30% USDC
-   │   ← experience NFT ─────────│                           │
-   │   ← $TREK rewards ──────────│                           │
-```
-
----
-
-## Smart Contracts
-
-All programs are written in Rust using the [Anchor framework](https://www.anchor-lang.com/).
-
-### `tourism_registry` — Operator Registry & Reputation
-
-**Program ID:** `2GWdm3guUBQBLdA3VB9ECAwzN6UdpEMgs2VrKHiKfBXy`
-
-The backbone of the ecosystem. Operators stake SOL to register, creating skin-in-the-game accountability.
-
-| Instruction | Description |
-|---|---|
-| `register_operator` | Stake SOL, set category (Guide / Teahouse / Agency / Transport / Accommodation), store IPFS metadata URI |
-| `update_operator` | Update name or metadata URI |
-| `submit_review` | Tourist submits 1–5 star rating; updates operator's rolling reputation score (normalized 0–100) |
-
-**Accounts:**
-- `OperatorAccount` — PDA seeded `["operator", authority]`
-- `ReviewAccount` — PDA seeded `["review", operator, tourist]` (one review per tourist/operator pair)
-
----
-
-### `booking_escrow` — Milestone-Based USDC Escrow
-
-Trustless payments: funds leave the tourist's wallet and only reach the operator when milestones are confirmed.
-
-| Instruction | Description |
-|---|---|
-| `create_booking` | Lock USDC in PDA vault with service type, schedule, and IPFS trip details |
-| `confirm_booking` | Operator confirms they will fulfill the booking |
-| `release_milestone` | Release 30% / 40% / 30% of escrowed funds on milestone 0 / 1 / 2 |
-| `complete_booking` | Mark booking complete; triggers final fund release |
-
-**BookingStatus FSM:** `Pending → Confirmed → Completed | Disputed | Cancelled`
-
-**Dispute deadline:** 48 hours after `end_time` — enforced on-chain.
-
----
-
-### `experience_nft` — Compressed NFT Trophies
-
-Every completed trek is immortalized as a Metaplex Bubblegum compressed NFT, costing a fraction of a cent to mint.
-
-| Instruction | Description |
-|---|---|
-| `mint_experience_nft` | CPI to Bubblegum — mint a cNFT with trail name, peak altitude, date, and weather metadata |
-
-**Metadata fields:** `trail`, `altitude (m)`, `date (unix)`, `weather`
-
----
-
-### `loyalty_token` — $TREK Staking
-
-| Instruction | Description |
-|---|---|
-| `earn_trek` | Mint $TREK to a tourist's ATA on booking completion |
-| `stake_trek` | Time-lock $TREK into a vault PDA; accrues DAO voting weight |
-| `unstake_trek` | Withdraw after lock duration expires |
-
-**StakeAccount PDA** seeded `["stake", owner]` — tracks amount, start time, end time.
-
----
-
-### `dao_governance` — On-Chain Governance
-
-$TREK holders govern the ecosystem. Vote weight is proportional to staked $TREK.
-
-| Instruction | Description |
-|---|---|
-| `create_proposal` | Submit a governance proposal (title, description, type) |
-| `cast_vote` | Cast weighted vote for or against an active proposal |
-
-**ProposalType variants:**
-- `SlashOperator` — penalize a bad actor's staked SOL
-- `AddVerifiedRoute` — whitelist a new trekking route
-- `UpdateFeeStructure` — modify platform fee parameters
-- `TreasurySpend` — allocate from the DAO treasury
-
----
-
-### `route_registry` — GPS-Verified Trail Checkpoints
-
-Trekking routes are registered on-chain with a series of checkpoints. Operators prove service delivery by recording on-chain check-ins at each point, triggering cNFT badge mints.
-
----
-
-### `carbon_credits` — CO₂ Offset Tracking
-
-Every booking calculates a CO₂ footprint based on distance and transport mode, mints an offset token, and allows permanent on-chain retirement.
-
-| Transport | Footprint |
-|---|---|
-| Flight | 0.25 kg CO₂ / km |
-| Bus | 0.05 kg CO₂ / km |
-| Trekking | 0.01 kg CO₂ / km |
-
-| Instruction | Description |
-|---|---|
-| `mint_offset` | Calculate and record CO₂ footprint for a booking |
-| `retire_offset` | Permanently retire offset credits (idempotent) |
-
----
-
-### `pricing_oracle` — Dynamic Peak-Season Pricing
-
-| Instruction | Description |
-|---|---|
-| `get_price` | Apply seasonal multiplier to base price (1.4× during Oct–Nov and Mar–May peaks) |
-| `update_pricing_config` | Admin updates peak season flag (Switchboard oracle integration planned) |
-
-Peak season surge is capped at 2× base price.
-
----
-
-### `sos_insurance` — Parametric Emergency Insurance
-
-One instruction from any altitude above 5,000m triggers an on-chain SOS with GPS coordinates and auto-initiates a $500 USDC payout.
-
-| Instruction | Description |
-|---|---|
-| `trigger_sos` | Record GPS lat/long/altitude and timestamp on-chain; emit `SOSTriggeredEvent` |
-| `payout_insurance` | Verify altitude threshold (> 5,000m) and pay out insurance proceeds |
 
 ---
 
 ## Tech Stack
 
-| Layer | Technology | Version |
-|---|---|---|
-| Smart Contracts | Rust + Anchor | `anchor-lang 1.0.0` / Rust `1.89.0` |
-| Frontend | Next.js + React | `16.2.4` / `19.2.4` |
-| Styling | Tailwind CSS + Framer Motion | `^4` / `^12` |
-| Backend | Express.js + Mongoose | `^5.2.1` / `^9.4.1` |
-| Database | MongoDB | via Mongoose `^9.4.1` |
-| NFTs | Metaplex Bubblegum (cNFTs) | `mpl-bubblegum ^5.0.2` |
-| Maps | Mapbox GL | `^3.22.0` |
-| Wallet | Phantom (+ Solana Wallet Adapter) | `@solana/wallet-adapter` |
-| Package Manager | Yarn (workspace monorepo) | — |
+| Layer | Technology |
+|---|---|
+| Smart Contracts | Rust + Anchor framework |
+| Frontend | Next.js 15 (App Router) · TypeScript · Tailwind CSS · shadcn/ui · Framer Motion |
+| Backend | Next.js API Routes + Supabase Edge Functions |
+| Database | Supabase (Postgres) with Row-Level Security |
+| Auth | Supabase Auth (email/social) + Solana wallet signature verification |
+| Maps | Mapbox GL JS |
+| NFTs | Metaplex Bubblegum (compressed NFTs) |
+| File Storage | Supabase Storage (images, docs) + Arweave (NFT metadata) |
+| Analytics | PostHog |
+| Deployment | Vercel (frontend) + Supabase (hosted) + Solana Devnet → Mainnet |
+| Wallet | Phantom / Solflare (via Solana Wallet Adapter) |
 
 ---
 
@@ -252,35 +192,23 @@ One instruction from any altitude above 5,000m triggers an on-chain SOS with GPS
 
 ```
 Tour_chain/
-├── programs/                    # Anchor smart contracts (Rust)
-│   ├── tourism_registry/        # ✅ Deployed — operator registry + reputation
-│   ├── booking_escrow/          # Milestone-based USDC escrow
-│   ├── experience_nft/          # Compressed NFT experience badges
-│   ├── loyalty_token/           # $TREK token staking
-│   ├── dao_governance/          # Proposal + weighted voting
-│   ├── route_registry/          # GPS checkpoint verification
-│   ├── carbon_credits/          # CO₂ offset tracking + retirement
-│   ├── pricing_oracle/          # Peak season dynamic pricing
-│   └── sos_insurance/           # Parametric emergency insurance
+├── programs/                      # Anchor smart contracts (Rust)
+│   ├── tourchain_reputation/      # Guide identity + on-chain reputation PDA
+│   ├── tourchain_escrow/          # Milestone-based SOL escrow
+│   └── tourchain_proof/           # Bubblegum cNFT completion proofs
 │
 ├── apps/
-│   └── web/                     # Next.js 16 frontend (Himalayan Aurora UI)
+│   └── web/                       # Next.js 15 frontend
 │       └── src/
-│           ├── app/             # App Router pages
-│           └── components/      # Wallet provider, Map, UI components
+│           ├── app/               # App Router pages
+│           └── components/        # Wallet provider, Map, UI components
 │
-├── backend/                     # Express.js API + Solana relay
-│   └── src/
-│       ├── routes/              # auth, visits, leaderboard, nfts, actions
-│       └── services/            # solanaService, bubblegumService, qrService
+├── supabase/
+│   └── migrations/                # Postgres schema + RLS policies + seed data
 │
-├── sdk/                         # TypeScript SDK for program interactions
-│   └── src/
-│       └── index.ts             # TourismChain client class
-│
-├── Anchor.toml                  # Anchor workspace config
-├── Cargo.toml                   # Rust workspace
-└── vercel.json                  # Serverless deployment config
+├── Anchor.toml                    # Anchor workspace config
+├── Cargo.toml                     # Rust workspace
+└── vercel.json                    # Deployment config
 ```
 
 ---
@@ -294,6 +222,7 @@ Tour_chain/
 - [Anchor CLI](https://www.anchor-lang.com/docs/installation) `0.32+`
 - [Node.js](https://nodejs.org/) `18+`
 - [Yarn](https://yarnpkg.com/) `1.22+`
+- A [Supabase](https://supabase.com/) project
 - A [Phantom](https://phantom.app/) wallet funded with devnet SOL
 
 ### 1. Clone and Install
@@ -307,21 +236,28 @@ yarn install
 ### 2. Configure Environment
 
 ```bash
-cp backend/.env.example backend/.env
 cp apps/web/.env.local.example apps/web/.env.local
 ```
 
 Fill in the required values — see [Environment Variables](#environment-variables).
 
-### 3. Build Anchor Programs
+### 3. Deploy Supabase Schema
+
+```bash
+supabase db push
+```
+
+This runs all migrations in `supabase/migrations/` — tables, RLS policies, and seed data (5 routes, 15 checkpoint places, 3 verified guides, 10 quests).
+
+### 4. Build Anchor Programs
 
 ```bash
 anchor build
 ```
 
-IDL artifacts will be generated at `target/idl/`. The SDK and backend depend on these.
+IDL artifacts will be generated at `target/idl/`.
 
-### 4. Deploy to Devnet
+### 5. Deploy to Devnet
 
 ```bash
 solana config set --url devnet
@@ -329,14 +265,6 @@ anchor deploy
 ```
 
 Update `Anchor.toml` with the new program IDs, then rebuild.
-
-### 5. Start the Backend
-
-```bash
-cd backend
-node src/index.js
-# API running at http://localhost:3001
-```
 
 ### 6. Start the Frontend
 
@@ -352,110 +280,119 @@ yarn dev
 
 | Program | Network | Address |
 |---|---|---|
-| `tourism_registry` | Devnet | `2GWdm3guUBQBLdA3VB9ECAwzN6UdpEMgs2VrKHiKfBXy` |
-| `booking_escrow` | — | Pending deployment |
-| `experience_nft` | — | Pending deployment |
-| `loyalty_token` | — | Pending deployment |
-| `dao_governance` | — | Pending deployment |
-| `route_registry` | — | Pending deployment |
-| `carbon_credits` | — | Pending deployment |
-| `pricing_oracle` | — | Pending deployment |
-| `sos_insurance` | — | Pending deployment |
+| `tourchain_reputation` | Devnet | Pending deployment |
+| `tourchain_escrow` | Devnet | Pending deployment |
+| `tourchain_proof` | Devnet | Pending deployment |
 
 ---
 
 ## Core Flows
 
-### Register as an Operator
+### Tourist Journey
 
-1. Connect Phantom wallet
-2. Navigate to **Become an Operator**
-3. Choose category (Guide / Teahouse / Agency / Transport / Accommodation)
-4. Upload profile to IPFS, enter the URI
-5. Stake SOL — this is your on-chain reputation deposit
-6. Submit — calls `register_operator` on `tourism_registry`
+```
+Browse quests/routes → View verified guide profiles + on-chain reputation scores
+→ Book guide (payment held in escrow)
+→ Day 1: Check in at first checkpoint (GPS + QR scan)
+    → Quest clue unlocked
+→ Trek progresses: each checkpoint = XP + milestone payment to guide
+→ Final checkpoint: guide confirms completion
+    → Remaining escrow released to guide
+    → Completion cNFT minted to tourist wallet
+→ Leave review → guide reputation updated on-chain
+→ View achievement collection → climb leaderboard
+```
 
-### Book a Trek
+### Guide Journey
 
-1. Browse operators on the **Explore** page
-2. Select dates, service type, and confirm pricing
-3. Connect wallet and approve USDC transfer to the escrow PDA
-4. Your booking status is `Pending` until the operator confirms
+```
+Apply on platform → Submit credentials (license, ID, references)
+→ Admin verifies → Profile created with on-chain reputation PDA
+→ Create service listing → Receive bookings → Accept → Escrow funded
+→ Lead trek → Confirm tourist check-ins at each checkpoint
+→ Complete trek → Final milestone released
+→ Receive review → Reputation score updated on-chain
+→ After 50 completions → "Master Guide" soul-bound badge
+```
 
-### Collect Your Badges
+### Check-in System
 
-QR codes are placed at verified trail checkpoints. Scan → authenticate → a compressed NFT badge is minted to your wallet proving you were there.
+Check-in at trail checkpoints requires GPS proximity (within 500m) **and** a guide co-signature. No honor system. No fake check-ins. The guide's wallet signature is recorded alongside every completion.
 
-### Governance
+### Dispute Resolution
 
-1. Stake `$TREK` tokens to earn voting weight
-2. Navigate to **DAO** to browse active proposals
-3. Cast a weighted vote — one vote per wallet per proposal, enforced by PDA
+```
+Tourist reports problem → Selects category (no-show / safety / billing / quality)
+→ Escrow frozen
+→ Admin reviews evidence within 48 hours
+→ Decision: refund / partial release / dismiss
+→ Escrow resolved accordingly
+→ Repeat offenders suspended after threshold
+```
 
 ---
 
-## SDK
+## Data Model
 
-The TypeScript SDK provides a typed client for all nine programs.
+Core tables: `users`, `guides`, `places`, `routes`, `route_checkpoints`, `quests`, `services`, `bookings`, `check_ins`, `reviews`, `disputes`, `completion_proofs`.
 
-```typescript
-import { TourismChain } from './sdk/src';
-import { Connection, Keypair } from '@solana/web3.js';
-import { AnchorProvider, Wallet } from '@coral-xyz/anchor';
+Row-Level Security enforces:
+- Public read on guides, places, routes, and reviews
+- Users can only modify their own records
+- Bookings visible to tourist, guide, and admin only
+- Admin has full access
 
-const connection = new Connection('https://api.devnet.solana.com');
-const provider = new AnchorProvider(connection, new Wallet(keypair), {});
-
-const client = new TourismChain(provider);
-
-// Register an operator
-await client.getTourismRegistryProgram().methods
-  .registerOperator('Himalayan Guides Co.', { guide: {} }, metadataUri, stakeAmount)
-  .accounts({ authority: wallet.publicKey, systemProgram: SystemProgram.programId })
-  .rpc();
-```
-
-> **Note:** Run `anchor build` first to generate IDL artifacts before using the SDK.
+A materialized view computes the leaderboard from XP, completions, and unique places visited.
 
 ---
 
 ## Environment Variables
 
-### Backend (`backend/.env`)
-
-| Variable | Required | Description |
-|---|---|---|
-| `MONGODB_URI` | ✅ | MongoDB connection string |
-| `SOLANA_RPC` | ✅ | Solana RPC endpoint (devnet or mainnet) |
-| `WALLET_PATH` | ✅ | Absolute path to Solana keypair JSON file |
-| `MERKLE_TREE_PUBKEY` | ✅ | Pre-provisioned Bubblegum Merkle tree address |
-| `JWT_SECRET` | ✅ | Secret for JWT signing |
-| `PORT` | — | API port (default: `3001`) |
-| `ALLOWED_ORIGINS` | — | Comma-separated CORS origins |
-
 ### Frontend (`apps/web/.env.local`)
 
 | Variable | Required | Description |
 |---|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | ✅ | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | ✅ | Supabase anon/public key |
 | `NEXT_PUBLIC_MAPBOX_TOKEN` | ✅ | Mapbox GL access token |
 | `NEXT_PUBLIC_SOLANA_RPC` | — | Override Solana RPC endpoint |
-| `NEXT_PUBLIC_API_URL` | — | Backend API base URL (default: `http://localhost:3001`) |
+| `SUPABASE_SERVICE_ROLE_KEY` | ✅ | Server-side Supabase key (never expose to browser) |
 
 ---
 
 ## Roadmap
 
-- [ ] Deploy all 9 programs to devnet
-- [ ] Implement USDC SPL token transfers in `booking_escrow`
-- [ ] Wire Bubblegum CPI in `experience_nft` and `route_registry`
-- [ ] Implement `earn_trek` mint authority in `loyalty_token`
-- [ ] Add VoteRecord PDA to `dao_governance` (one-vote-per-wallet enforcement)
-- [ ] Integrate Switchboard oracle for live weather/pricing data
-- [ ] Add wallet signature verification to auth endpoints
-- [ ] Write Anchor integration test suite
-- [ ] Set up CI/CD pipeline
-- [ ] Provision Merkle tree and document setup
-- [ ] Mainnet deployment
+### MVP (Days 1–7) — It works, it's real
+
+- [ ] Supabase schema deployed with seed data
+- [ ] Supabase Auth (email signup + wallet connect)
+- [ ] Frontend: home page, quest browser, guide profiles, booking flow
+- [ ] `tourchain_reputation` deployed to devnet
+- [ ] GPS proximity check-in flow
+- [ ] Booking creates Supabase record + SOL escrow stub on devnet
+- [ ] Guide dashboard: view bookings, confirm completions
+- [ ] Review submission → on-chain reputation update
+- [ ] Mobile-responsive
+
+### V1 (Days 8–11) — It's impressive
+
+- [ ] `tourchain_escrow` with real SOL milestone release
+- [ ] `tourchain_proof` with Bubblegum cNFT minting
+- [ ] Admin panel: guide verification, dispute review
+- [ ] Leaderboard (materialized view + frontend)
+- [ ] QR code check-in at partner locations
+- [ ] Quest system with story text and XP rewards
+- [ ] Polish: animations, loading states, error handling
+
+### V2 (Post-hackathon) — It's a company
+
+- [ ] USDC escrow (real SPL token transfers)
+- [ ] Arweave permanent NFT metadata
+- [ ] Tourist mobile app (React Native)
+- [ ] Nepal Tourism Board API + permit verification
+- [ ] Guide payout via eSewa / bank integration
+- [ ] Multi-language: English, Nepali, Chinese, Korean
+- [ ] 50+ verified guides in Kathmandu, Pokhara, and Lukla
 
 ---
 
@@ -478,8 +415,8 @@ anchor test
 
 ## License
 
-MIT © 2024 Tourism Chain Nepal
+MIT © 2024–2026 TourChain
 
 ---
 
-*Built with love for Nepal's trekking community at the Colosseum Hackathon.*
+*Built for Nepal's trekking community. The blockchain is infrastructure, not UI — tourists should see "Book Now", not "Initialize Escrow PDA".*
