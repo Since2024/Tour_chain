@@ -286,7 +286,7 @@ export async function POST(request: Request) {
     const current = await supabase.from("bookings").insert(attempt.insert).select(attempt.select).single();
     if (!current.error) {
       insertRes = {
-        data: current.data as {
+        data: current.data as unknown as {
           id: string;
           status: string;
           start_date: string;
@@ -348,7 +348,7 @@ export async function POST(request: Request) {
       const current = await admin.from("bookings").insert(payload).select(attempt.select).single();
       if (!current.error) {
         insertRes = {
-          data: current.data as {
+          data: current.data as unknown as {
             id: string;
             status: string;
             start_date: string;

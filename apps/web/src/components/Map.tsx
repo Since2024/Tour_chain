@@ -2,7 +2,7 @@
 
 import React from "react";
 import { MapContainer, Marker, Popup, TileLayer } from "react-leaflet";
-import L from "leaflet";
+import L, { LatLngExpression } from "leaflet";
 import "leaflet/dist/leaflet.css";
 
 type MapPoint = {
@@ -30,20 +30,23 @@ const InteractiveMap: React.FC<MapProps> = ({
     shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
   });
 
+  const mapCenter: LatLngExpression = [center[1], center[0]];
+
   return (
     <div className="relative w-full h-[600px] rounded-3xl overflow-hidden glass-card shadow-2xl">
       <MapContainer
-        center={[center[1], center[0]]}
+        center={mapCenter}
         zoom={zoom}
-        scrollWheelZoom
+        scrollWheelZoom={true}
         className="absolute inset-0 z-0"
+        style={{ height: "100%", width: "100%" }}
       >
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         {points.map((point) => (
-          <Marker key={point.id} position={[point.lat, point.lng]}>
+          <Marker key={point.id} position={[point.lat, point.lng] as LatLngExpression}>
             <Popup>
               <strong>{point.name}</strong>
               {point.description ? <p>{point.description}</p> : null}
