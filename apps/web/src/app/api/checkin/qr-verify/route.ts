@@ -4,6 +4,7 @@ import { verifyToken } from "@/lib/qr";
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
+  if (!supabase) return NextResponse.json({ error: "Service unavailable" }, { status: 503 });
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 

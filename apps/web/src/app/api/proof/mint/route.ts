@@ -5,8 +5,9 @@ import {
   Keypair,
   PublicKey,
   SystemProgram,
+  Transaction,
 } from "@solana/web3.js";
-import { AnchorProvider, Program, Wallet } from "@coral-xyz/anchor";
+import { AnchorProvider, Program } from "@coral-xyz/anchor";
 import bs58 from "bs58";
 import idl from "@/lib/solana/idl/tourchain_proof.json";
 
@@ -27,6 +28,7 @@ function getProofAuthorityPda(): [PublicKey, number] {
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
+  if (!supabase) return NextResponse.json({ error: "Service unavailable" }, { status: 503 });
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -61,8 +63,15 @@ export async function POST(req: NextRequest) {
       "confirmed"
     );
 
-    const wallet = new Wallet(keypair);
-    const provider = new AnchorProvider(connection, wallet, {
+    const anchorWallet = {
+      publicKey: keypair.publicKey,
+      signTransaction: async (tx: Transaction) => { tx.partialSign(keypair); return tx; },
+      signAllTransactions: async (txs: Transaction[]) => {
+        txs.forEach((tx) => tx.partialSign(keypair));
+        return txs;
+      },
+    };
+    const provider = new AnchorProvider(connection, anchorWallet as AnchorProvider["wallet"], {
       commitment: "confirmed",
     });
 
