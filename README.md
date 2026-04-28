@@ -1,6 +1,6 @@
 # TourChain
 
-**A trust-first adventure tourism platform for Nepal — verified guides, escrow-protected bookings, and on-chain proof of every journey.**
+**A trust-first adventure tourism platform from Nepal — verified guides, escrow-protected bookings, and on-chain proof of every journey.**
 
 Built for the [Colosseum Hackathon](https://www.colosseum.org/) · Powered by Solana
 
