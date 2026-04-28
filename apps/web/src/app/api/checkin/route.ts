@@ -1,69 +1,93 @@
-import { createClient } from "@/lib/supabase/server";
-import { jsonError, jsonOk } from "@/lib/api/response";
-import { CheckinInput } from "@/lib/validation/schemas";
+import { NextRequest, NextResponse } from "next/server";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
 
-function haversineMeters(lat1: number, lon1: number, lat2: number, lon2: number) {
-  const R = 6371e3;
-  const toRad = (value: number) => (value * Math.PI) / 180;
+function haversineMeters(
+  lat1: number, lng1: number,
+  lat2: number, lng2: number
+): number {
+  const R = 6371000;
+  const toRad = (x: number) => (x * Math.PI) / 180;
   const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon2 - lon1);
+  const dLng = toRad(lng2 - lng1);
   const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-export async function POST(request: Request) {
+export async function POST(req: NextRequest) {
   const supabase = await createClient();
-  if (!supabase) {
-    return jsonError(500, "missing_env", "Supabase env is not configured");
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const body = await req.json();
+  const { booking_id, place_id, lat, lng } = body;
+
+  if (
+    typeof booking_id !== "string" ||
+    typeof place_id !== "string" ||
+    typeof lat !== "number" ||
+    typeof lng !== "number"
+  ) {
+    return NextResponse.json({ error: "Invalid input" }, { status: 400 });
   }
 
-  const parsed = CheckinInput.safeParse(await request.json());
-  if (!parsed.success) {
-    return jsonError(400, "validation_error", "Invalid check-in payload", parsed.error.flatten());
-  }
-  const body = parsed.data;
+  const service = createServiceClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return jsonError(401, "unauthorized", "Unauthorized");
+  // Verify booking belongs to user
+  const { data: booking } = await service
+    .from("bookings")
+    .select("id, tourist_id, status")
+    .eq("id", booking_id)
+    .single();
+
+  if (!booking || booking.tourist_id !== user.id) {
+    return NextResponse.json({ error: "Booking not found" }, { status: 404 });
+  }
+  if (!["confirmed", "active"].includes(booking.status)) {
+    return NextResponse.json({ error: "Booking not active" }, { status: 400 });
   }
 
-  const { data: place, error: placeError } = await supabase
+  // Server-side GPS validation: check distance to place
+  const { data: place } = await service
     .from("places")
-    .select("latitude,longitude")
-    .eq("id", body.place_id)
-    .maybeSingle();
-  if (placeError || !place) {
-    return jsonError(404, "not_found", "Place not found");
+    .select("latitude, longitude")
+    .eq("id", place_id)
+    .single();
+
+  if (!place) {
+    return NextResponse.json({ error: "Place not found" }, { status: 404 });
   }
 
-  const distance = haversineMeters(body.lat, body.lng, Number(place.latitude), Number(place.longitude));
+  const distance = haversineMeters(
+    lat, lng,
+    Number(place.latitude), Number(place.longitude)
+  );
+
   if (distance > 500) {
-    return jsonError(400, "outside_geofence", `Outside geofence (${Math.round(distance)}m)`);
+    return NextResponse.json(
+      { error: `Too far from checkpoint: ${Math.round(distance)}m away (max 500m)` },
+      { status: 400 }
+    );
   }
 
-  const { data, error } = await supabase
+  const { data: checkin, error } = await service
     .from("check_ins")
     .insert({
-      booking_id: body.booking_id,
+      booking_id,
       user_id: user.id,
-      place_id: body.place_id,
+      place_id,
       method: "gps",
-      latitude: body.lat,
-      longitude: body.lng,
+      latitude: lat,
+      longitude: lng,
       verified: true,
     })
-    .select("id,created_at,verified")
+    .select()
     .single();
 
   if (error) {
-    return jsonError(500, "db_error", error.message);
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return jsonOk({ checkin: data });
+  return NextResponse.json({ checkin });
 }

@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-declare_id!("2GWdm3guUBQBLdA3VB9ECAwzN6UdpEMgs2VrKHiKfBXy");
+declare_id!("BxgSbUELdL9cCj4hETtFJqyzDqFeRKAYefWBnVpDXk3L");
 
 const GUIDE_NAME_LEN: usize = 64;
 
@@ -195,11 +195,11 @@ pub struct GuideReinstated {
 
 #[error_code]
 pub enum ReputationError {
-    #[msg("Unauthorized admin")]
+    #[msg("Caller is not the registered admin")]
     UnauthorizedAdmin,
     #[msg("Guide is suspended")]
     GuideSuspended,
-    #[msg("Invalid score")]
+    #[msg("Score must be between 1 and 5")]
     InvalidScore,
     #[msg("Arithmetic overflow")]
     Overflow,
@@ -220,4 +220,3 @@ mod tests {
         assert!(score_to_weighted(0).is_err());
     }
 }
-

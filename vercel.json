@@ -4,36 +4,6 @@
     {
       "src": "apps/web/package.json",
       "use": "@vercel/next"
-    },
-    {
-      "src": "backend/src/index.js",
-      "use": "@vercel/node"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/api/auth(.*)",
-      "dest": "backend/src/index.js"
-    },
-    {
-      "src": "/api/places(.*)",
-      "dest": "backend/src/index.js"
-    },
-    {
-      "src": "/api/visits(.*)",
-      "dest": "backend/src/index.js"
-    },
-    {
-      "src": "/api/leaderboard(.*)",
-      "dest": "backend/src/index.js"
-    },
-    {
-      "src": "/api/nfts(.*)",
-      "dest": "backend/src/index.js"
-    },
-    {
-      "src": "/api/actions(.*)",
-      "dest": "backend/src/index.js"
     }
   ]
 }

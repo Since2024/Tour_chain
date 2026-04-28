@@ -1,111 +1,234 @@
-create or replace function is_admin(uid uuid)
-returns boolean
-language sql
-stable
-as $$
-    select exists (
-        select 1 from users
-        where id = uid and role = 'admin'
-    );
+-- Helper: check if the calling user has admin role
+CREATE OR REPLACE FUNCTION is_admin(uid uuid)
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM users WHERE id = uid AND role = 'admin'
+  );
 $$;
 
-alter table users enable row level security;
-alter table guides enable row level security;
-alter table places enable row level security;
-alter table routes enable row level security;
-alter table route_checkpoints enable row level security;
-alter table quests enable row level security;
-alter table services enable row level security;
-alter table bookings enable row level security;
-alter table check_ins enable row level security;
-alter table reviews enable row level security;
-alter table disputes enable row level security;
-alter table completion_proofs enable row level security;
+-- ============================================
+-- USERS
+-- ============================================
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 
-create policy "users_public_select" on users for select using (true);
-create policy "users_self_update" on users for update using (auth.uid() = id);
+CREATE POLICY "users_public_read" ON users
+    FOR SELECT USING (true);
 
-create policy "guides_public_select" on guides for select using (true);
-create policy "guides_self_or_admin_insert" on guides for insert with check (auth.uid() = user_id or is_admin(auth.uid()));
-create policy "guides_self_or_admin_update" on guides for update using (auth.uid() = user_id or is_admin(auth.uid()));
+CREATE POLICY "users_self_update" ON users
+    FOR UPDATE USING (auth.uid() = id);
 
-create policy "places_public_select" on places for select using (true);
-create policy "places_admin_write" on places for all using (is_admin(auth.uid())) with check (is_admin(auth.uid()));
+-- ============================================
+-- GUIDES
+-- ============================================
+ALTER TABLE guides ENABLE ROW LEVEL SECURITY;
 
-create policy "routes_public_select" on routes for select using (true);
-create policy "routes_admin_write" on routes for all using (is_admin(auth.uid())) with check (is_admin(auth.uid()));
+CREATE POLICY "guides_public_read" ON guides
+    FOR SELECT USING (true);
 
-create policy "route_checkpoints_public_select" on route_checkpoints for select using (true);
-create policy "route_checkpoints_admin_write" on route_checkpoints for all using (is_admin(auth.uid())) with check (is_admin(auth.uid()));
+CREATE POLICY "guides_self_write" ON guides
+    FOR UPDATE USING (
+        auth.uid() = user_id OR is_admin(auth.uid())
+    );
 
-create policy "quests_public_select" on quests for select using (true);
-create policy "quests_admin_write" on quests for all using (is_admin(auth.uid())) with check (is_admin(auth.uid()));
+CREATE POLICY "guides_admin_insert" ON guides
+    FOR INSERT WITH CHECK (is_admin(auth.uid()));
 
-create policy "services_public_select" on services for select using (true);
-create policy "services_guide_owner_insert" on services for insert with check (
-    exists (
-        select 1 from guides g
-        where g.id = services.guide_id and g.user_id = auth.uid()
-    ) or is_admin(auth.uid())
-);
-create policy "services_guide_owner_update" on services for update using (
-    exists (
-        select 1 from guides g
-        where g.id = services.guide_id and g.user_id = auth.uid()
-    ) or is_admin(auth.uid())
-);
+CREATE POLICY "guides_admin_delete" ON guides
+    FOR DELETE USING (is_admin(auth.uid()));
 
-create policy "bookings_participants_or_admin_select" on bookings for select using (
-    auth.uid() = tourist_id
-    or exists (select 1 from guides g where g.id = bookings.guide_id and g.user_id = auth.uid())
-    or is_admin(auth.uid())
-);
-create policy "bookings_tourist_insert" on bookings for insert with check (auth.uid() = tourist_id);
-create policy "bookings_participants_update" on bookings for update using (
-    auth.uid() = tourist_id
-    or exists (select 1 from guides g where g.id = bookings.guide_id and g.user_id = auth.uid())
-    or is_admin(auth.uid())
-);
+-- ============================================
+-- PLACES
+-- ============================================
+ALTER TABLE places ENABLE ROW LEVEL SECURITY;
 
-create policy "checkins_booking_participants_select" on check_ins for select using (
-    exists (
-        select 1
-        from bookings b
-        left join guides g on g.id = b.guide_id
-        where b.id = check_ins.booking_id
-        and (auth.uid() = b.tourist_id or auth.uid() = g.user_id or is_admin(auth.uid()))
-    )
-);
-create policy "checkins_booking_participants_insert" on check_ins for insert with check (
-    exists (
-        select 1
-        from bookings b
-        left join guides g on g.id = b.guide_id
-        where b.id = check_ins.booking_id
-        and (auth.uid() = b.tourist_id or auth.uid() = g.user_id or is_admin(auth.uid()))
-    )
-);
+CREATE POLICY "places_public_read" ON places
+    FOR SELECT USING (true);
 
-create policy "reviews_public_select" on reviews for select using (true);
-create policy "reviews_completed_reviewer_insert" on reviews for insert with check (
-    auth.uid() = reviewer_id
-    and exists (
-        select 1 from bookings b
-        where b.id = reviews.booking_id
-          and b.status = 'completed'
-    )
-);
+CREATE POLICY "places_admin_write" ON places
+    FOR INSERT WITH CHECK (is_admin(auth.uid()));
 
-create policy "disputes_filer_or_admin_select" on disputes for select using (
-    auth.uid() = filed_by or is_admin(auth.uid())
-);
-create policy "disputes_filer_insert" on disputes for insert with check (
-    auth.uid() = filed_by
-);
-create policy "disputes_admin_update" on disputes for update using (
-    is_admin(auth.uid())
-);
+CREATE POLICY "places_admin_update" ON places
+    FOR UPDATE USING (is_admin(auth.uid()));
 
-create policy "completion_proofs_public_select" on completion_proofs for select using (true);
-create policy "completion_proofs_service_role_insert" on completion_proofs for insert
-with check (auth.role() = 'service_role' or is_admin(auth.uid()));
+CREATE POLICY "places_admin_delete" ON places
+    FOR DELETE USING (is_admin(auth.uid()));
+
+-- ============================================
+-- ROUTES
+-- ============================================
+ALTER TABLE routes ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "routes_public_read" ON routes
+    FOR SELECT USING (true);
+
+CREATE POLICY "routes_admin_write" ON routes
+    FOR INSERT WITH CHECK (is_admin(auth.uid()));
+
+CREATE POLICY "routes_admin_update" ON routes
+    FOR UPDATE USING (is_admin(auth.uid()));
+
+CREATE POLICY "routes_admin_delete" ON routes
+    FOR DELETE USING (is_admin(auth.uid()));
+
+-- ============================================
+-- ROUTE CHECKPOINTS
+-- ============================================
+ALTER TABLE route_checkpoints ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "route_checkpoints_public_read" ON route_checkpoints
+    FOR SELECT USING (true);
+
+CREATE POLICY "route_checkpoints_admin_write" ON route_checkpoints
+    FOR INSERT WITH CHECK (is_admin(auth.uid()));
+
+CREATE POLICY "route_checkpoints_admin_update" ON route_checkpoints
+    FOR UPDATE USING (is_admin(auth.uid()));
+
+CREATE POLICY "route_checkpoints_admin_delete" ON route_checkpoints
+    FOR DELETE USING (is_admin(auth.uid()));
+
+-- ============================================
+-- QUESTS
+-- ============================================
+ALTER TABLE quests ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "quests_public_read" ON quests
+    FOR SELECT USING (true);
+
+CREATE POLICY "quests_admin_write" ON quests
+    FOR INSERT WITH CHECK (is_admin(auth.uid()));
+
+CREATE POLICY "quests_admin_update" ON quests
+    FOR UPDATE USING (is_admin(auth.uid()));
+
+CREATE POLICY "quests_admin_delete" ON quests
+    FOR DELETE USING (is_admin(auth.uid()));
+
+-- ============================================
+-- SERVICES
+-- ============================================
+ALTER TABLE services ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "services_public_read" ON services
+    FOR SELECT USING (true);
+
+CREATE POLICY "services_guide_owner_write" ON services
+    FOR INSERT WITH CHECK (
+        auth.uid() IN (SELECT user_id FROM guides WHERE id = guide_id)
+    );
+
+CREATE POLICY "services_guide_owner_update" ON services
+    FOR UPDATE USING (
+        auth.uid() IN (SELECT user_id FROM guides WHERE id = guide_id)
+        OR is_admin(auth.uid())
+    );
+
+CREATE POLICY "services_guide_owner_delete" ON services
+    FOR DELETE USING (
+        auth.uid() IN (SELECT user_id FROM guides WHERE id = guide_id)
+        OR is_admin(auth.uid())
+    );
+
+-- ============================================
+-- BOOKINGS
+-- ============================================
+ALTER TABLE bookings ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "bookings_participants_read" ON bookings
+    FOR SELECT USING (
+        auth.uid() = tourist_id
+        OR auth.uid() IN (SELECT user_id FROM guides WHERE id = guide_id)
+        OR is_admin(auth.uid())
+    );
+
+CREATE POLICY "bookings_tourist_insert" ON bookings
+    FOR INSERT WITH CHECK (auth.uid() = tourist_id);
+
+CREATE POLICY "bookings_participants_update" ON bookings
+    FOR UPDATE USING (
+        auth.uid() = tourist_id
+        OR auth.uid() IN (SELECT user_id FROM guides WHERE id = guide_id)
+        OR is_admin(auth.uid())
+    );
+
+-- ============================================
+-- CHECK-INS
+-- ============================================
+ALTER TABLE check_ins ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "check_ins_booking_participants_read" ON check_ins
+    FOR SELECT USING (
+        auth.uid() = user_id
+        OR auth.uid() IN (
+            SELECT tourist_id FROM bookings WHERE id = booking_id
+            UNION
+            SELECT u.id FROM users u
+            JOIN guides g ON g.user_id = u.id
+            JOIN bookings b ON b.guide_id = g.id
+            WHERE b.id = booking_id
+        )
+        OR is_admin(auth.uid())
+    );
+
+CREATE POLICY "check_ins_booking_participants_insert" ON check_ins
+    FOR INSERT WITH CHECK (
+        auth.uid() = user_id
+        OR auth.uid() IN (
+            SELECT u.id FROM users u
+            JOIN guides g ON g.user_id = u.id
+            JOIN bookings b ON b.guide_id = g.id
+            WHERE b.id = booking_id
+        )
+    );
+
+-- ============================================
+-- REVIEWS
+-- ============================================
+ALTER TABLE reviews ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "reviews_public_read" ON reviews
+    FOR SELECT USING (true);
+
+CREATE POLICY "reviews_reviewer_insert" ON reviews
+    FOR INSERT WITH CHECK (
+        auth.uid() = reviewer_id
+        AND EXISTS (
+            SELECT 1 FROM bookings
+            WHERE id = booking_id AND status = 'completed'
+            AND tourist_id = auth.uid()
+        )
+    );
+
+CREATE POLICY "reviews_admin_update" ON reviews
+    FOR UPDATE USING (is_admin(auth.uid()));
+
+-- ============================================
+-- DISPUTES
+-- ============================================
+ALTER TABLE disputes ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "disputes_filer_or_admin_read" ON disputes
+    FOR SELECT USING (
+        auth.uid() = filed_by OR is_admin(auth.uid())
+    );
+
+CREATE POLICY "disputes_filer_insert" ON disputes
+    FOR INSERT WITH CHECK (auth.uid() = filed_by);
+
+CREATE POLICY "disputes_admin_update" ON disputes
+    FOR UPDATE USING (is_admin(auth.uid()));
+
+-- ============================================
+-- COMPLETION PROOFS
+-- ============================================
+ALTER TABLE completion_proofs ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "completion_proofs_public_read" ON completion_proofs
+    FOR SELECT USING (true);
+
+-- Service role inserts proofs (bypasses RLS automatically)
+-- No INSERT policy needed for anon/authenticated roles

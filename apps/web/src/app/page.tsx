@@ -17,7 +17,7 @@ export default function Home() {
         setStats({
           tourists: payload.tourists ?? 0,
           totalEscrowUsd: payload.totalEscrowUsd ?? 0,
-          proofs: payload.proofs ?? 0,
+          proofs: payload.proofs ?? payload.nftsMinted ?? 0,
         });
       }
     };

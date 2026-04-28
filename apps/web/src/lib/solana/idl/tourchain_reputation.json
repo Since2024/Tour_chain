@@ -1,0 +1,423 @@
+{
+  "address": "BxgSbUELdL9cCj4hETtFJqyzDqFeRKAYefWBnVpDXk3L",
+  "metadata": {
+    "name": "tourchain_reputation",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "TourChain guide reputation PDA"
+  },
+  "instructions": [
+    {
+      "name": "initialize_guide",
+      "discriminator": [
+        226,
+        140,
+        5,
+        239,
+        15,
+        97,
+        207,
+        56
+      ],
+      "accounts": [
+        {
+          "name": "guide_reputation",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  117,
+                  105,
+                  100,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "guide"
+              }
+            ]
+          }
+        },
+        {
+          "name": "guide"
+        },
+        {
+          "name": "admin",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "name",
+          "type": {
+            "array": [
+              "u8",
+              64
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "reinstate_guide",
+      "discriminator": [
+        16,
+        241,
+        253,
+        61,
+        135,
+        8,
+        213,
+        131
+      ],
+      "accounts": [
+        {
+          "name": "guide_reputation",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  117,
+                  105,
+                  100,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "guide_reputation.authority",
+                "account": "GuideReputation"
+              }
+            ]
+          }
+        },
+        {
+          "name": "admin",
+          "signer": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "suspend_guide",
+      "discriminator": [
+        129,
+        95,
+        166,
+        170,
+        72,
+        209,
+        166,
+        47
+      ],
+      "accounts": [
+        {
+          "name": "guide_reputation",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  117,
+                  105,
+                  100,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "guide_reputation.authority",
+                "account": "GuideReputation"
+              }
+            ]
+          }
+        },
+        {
+          "name": "admin",
+          "signer": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "update_reputation",
+      "discriminator": [
+        194,
+        220,
+        43,
+        201,
+        54,
+        209,
+        49,
+        178
+      ],
+      "accounts": [
+        {
+          "name": "guide_reputation",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  117,
+                  105,
+                  100,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "guide_reputation.authority",
+                "account": "GuideReputation"
+              }
+            ]
+          }
+        },
+        {
+          "name": "admin",
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "score",
+          "type": "u8"
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "GuideReputation",
+      "discriminator": [
+        211,
+        54,
+        190,
+        222,
+        226,
+        66,
+        237,
+        113
+      ]
+    }
+  ],
+  "events": [
+    {
+      "name": "GuideRegistered",
+      "discriminator": [
+        42,
+        131,
+        62,
+        66,
+        21,
+        32,
+        221,
+        38
+      ]
+    },
+    {
+      "name": "GuideReinstated",
+      "discriminator": [
+        225,
+        57,
+        234,
+        105,
+        178,
+        22,
+        159,
+        145
+      ]
+    },
+    {
+      "name": "GuideSuspended",
+      "discriminator": [
+        20,
+        104,
+        84,
+        140,
+        219,
+        41,
+        87,
+        88
+      ]
+    },
+    {
+      "name": "ReputationUpdated",
+      "discriminator": [
+        26,
+        36,
+        187,
+        150,
+        235,
+        90,
+        106,
+        89
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "UnauthorizedAdmin",
+      "msg": "Caller is not the registered admin"
+    },
+    {
+      "code": 6001,
+      "name": "GuideSuspended",
+      "msg": "Guide is suspended"
+    },
+    {
+      "code": 6002,
+      "name": "InvalidScore",
+      "msg": "Score must be between 1 and 5"
+    },
+    {
+      "code": 6003,
+      "name": "Overflow",
+      "msg": "Arithmetic overflow"
+    }
+  ],
+  "types": [
+    {
+      "name": "GuideRegistered",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "guide",
+            "type": "pubkey"
+          },
+          {
+            "name": "admin",
+            "type": "pubkey"
+          },
+          {
+            "name": "active_since",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "GuideReinstated",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "guide",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "GuideReputation",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "admin",
+            "type": "pubkey"
+          },
+          {
+            "name": "name",
+            "type": {
+              "array": [
+                "u8",
+                64
+              ]
+            }
+          },
+          {
+            "name": "total_reviews",
+            "type": "u32"
+          },
+          {
+            "name": "total_score",
+            "type": "u64"
+          },
+          {
+            "name": "completed_treks",
+            "type": "u32"
+          },
+          {
+            "name": "active_since",
+            "type": "i64"
+          },
+          {
+            "name": "is_verified",
+            "type": "bool"
+          },
+          {
+            "name": "is_suspended",
+            "type": "bool"
+          },
+          {
+            "name": "last_updated",
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "GuideSuspended",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "guide",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ReputationUpdated",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "guide",
+            "type": "pubkey"
+          },
+          {
+            "name": "score",
+            "type": "u8"
+          },
+          {
+            "name": "total_reviews",
+            "type": "u32"
+          },
+          {
+            "name": "total_score",
+            "type": "u64"
+          }
+        ]
+      }
+    }
+  ]
+}

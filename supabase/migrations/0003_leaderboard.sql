@@ -1,31 +1,27 @@
-create materialized view if not exists leaderboard as
-select
+CREATE MATERIALIZED VIEW leaderboard AS
+SELECT
     u.id,
     u.display_name,
     u.avatar_url,
     u.xp,
     u.rank,
     u.total_completions,
-    count(distinct ci.place_id) as unique_places_visited,
-    rank() over (order by u.xp desc) as position
-from users u
-left join check_ins ci on ci.user_id = u.id and ci.verified = true
-where u.role = 'tourist'
-group by u.id
-order by u.xp desc;
+    COUNT(DISTINCT ci.place_id) AS unique_places_visited,
+    RANK() OVER (ORDER BY u.xp DESC) AS position
+FROM users u
+LEFT JOIN check_ins ci ON ci.user_id = u.id AND ci.verified = true
+WHERE u.role = 'tourist'
+GROUP BY u.id
+ORDER BY u.xp DESC;
 
-create unique index if not exists leaderboard_id_idx on leaderboard (id);
-create index if not exists leaderboard_position_idx on leaderboard (position);
+CREATE UNIQUE INDEX leaderboard_id_idx ON leaderboard (id);
 
-create or replace function refresh_leaderboard()
-returns void
-language plpgsql
-security definer
-as $$
-begin
-    refresh materialized view concurrently leaderboard;
-exception
-    when feature_not_supported then
-        refresh materialized view leaderboard;
-end;
+CREATE OR REPLACE FUNCTION refresh_leaderboard()
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+    REFRESH MATERIALIZED VIEW CONCURRENTLY leaderboard;
+END;
 $$;

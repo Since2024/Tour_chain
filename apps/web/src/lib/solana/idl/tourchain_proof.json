@@ -1,0 +1,296 @@
+{
+  "address": "EvRzd8MXqxojEmn4jViXv8NyxVXoU3X1gEuSv1tw9qML",
+  "metadata": {
+    "name": "tourchain_proof",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "TourChain Bubblegum cNFT completion proofs"
+  },
+  "instructions": [
+    {
+      "name": "initialize_proof_authority",
+      "docs": [
+        "One-time setup after off-chain tree creation via init-merkle-tree.ts"
+      ],
+      "discriminator": [
+        64,
+        199,
+        47,
+        226,
+        250,
+        98,
+        46,
+        148
+      ],
+      "accounts": [
+        {
+          "name": "proof_authority",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  114,
+                  111,
+                  111,
+                  102,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "admin",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "merkle_tree",
+          "type": "pubkey"
+        }
+      ]
+    },
+    {
+      "name": "mint_completion_proof",
+      "docs": [
+        "Admin-only: mint a compressed NFT completion proof via Bubblegum CPI"
+      ],
+      "discriminator": [
+        225,
+        12,
+        193,
+        232,
+        52,
+        227,
+        116,
+        106
+      ],
+      "accounts": [
+        {
+          "name": "proof_authority",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  114,
+                  111,
+                  111,
+                  102,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "admin",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "tree_config",
+          "writable": true
+        },
+        {
+          "name": "leaf_owner"
+        },
+        {
+          "name": "leaf_delegate"
+        },
+        {
+          "name": "merkle_tree",
+          "writable": true
+        },
+        {
+          "name": "log_wrapper"
+        },
+        {
+          "name": "compression_program"
+        },
+        {
+          "name": "bubblegum_program"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "name",
+          "type": "string"
+        },
+        {
+          "name": "symbol",
+          "type": "string"
+        },
+        {
+          "name": "uri",
+          "type": "string"
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "ProofAuthority",
+      "discriminator": [
+        221,
+        137,
+        119,
+        105,
+        165,
+        249,
+        26,
+        162
+      ]
+    }
+  ],
+  "events": [
+    {
+      "name": "CompletionProofMinted",
+      "discriminator": [
+        210,
+        3,
+        185,
+        8,
+        46,
+        172,
+        32,
+        196
+      ]
+    },
+    {
+      "name": "ProofAuthorityInitialized",
+      "discriminator": [
+        98,
+        51,
+        53,
+        226,
+        133,
+        67,
+        227,
+        222
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "UnauthorizedAdmin",
+      "msg": "Caller is not the registered admin"
+    },
+    {
+      "code": 6001,
+      "name": "NameTooLong",
+      "msg": "Name must be 32 characters or fewer"
+    },
+    {
+      "code": 6002,
+      "name": "SymbolTooLong",
+      "msg": "Symbol must be 10 characters or fewer"
+    },
+    {
+      "code": 6003,
+      "name": "UriTooLong",
+      "msg": "URI must be 200 characters or fewer"
+    },
+    {
+      "code": 6004,
+      "name": "Overflow",
+      "msg": "Arithmetic overflow"
+    }
+  ],
+  "types": [
+    {
+      "name": "CompletionProofMinted",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "admin",
+            "type": "pubkey"
+          },
+          {
+            "name": "leaf_owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "total_minted",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ProofAuthority",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "admin",
+            "type": "pubkey"
+          },
+          {
+            "name": "merkle_tree",
+            "type": "pubkey"
+          },
+          {
+            "name": "total_minted",
+            "type": "u64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ProofAuthorityInitialized",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "admin",
+            "type": "pubkey"
+          },
+          {
+            "name": "merkle_tree",
+            "type": "pubkey"
+          }
+        ]
+      }
+    }
+  ]
+}

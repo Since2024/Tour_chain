@@ -1,19 +1,18 @@
-export async function mintCompletionProof(payload: {
+export async function mintCompletionProof(params: {
   bookingId: string;
+  leafOwner: string;
   name: string;
   symbol: string;
   uri: string;
-}) {
-  const response = await fetch("/api/proof/mint", {
+}): Promise<{ txSignature: string }> {
+  const res = await fetch("/api/proof/mint", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
+    body: JSON.stringify(params),
   });
-
-  if (!response.ok) {
-    const body = await response.json().catch(() => ({}));
-    throw new Error(body.error ?? "Failed to mint completion proof");
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Proof mint failed: ${body}`);
   }
-
-  return response.json();
+  return res.json();
 }

@@ -9,11 +9,11 @@ import { WalletAdapterNetwork } from "@solana/wallet-adapter-base";
 import {
   PhantomWalletAdapter,
   SolflareWalletAdapter,
+  BackpackWalletAdapter,
 } from "@solana/wallet-adapter-wallets";
 import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
 import { clusterApiUrl } from "@solana/web3.js";
 
-// Import the styles manually since we are in a Next.js environment
 import "@solana/wallet-adapter-react-ui/styles.css";
 
 export const SolanaProvider = ({ children }: { children: React.ReactNode }) => {
@@ -24,14 +24,19 @@ export const SolanaProvider = ({ children }: { children: React.ReactNode }) => {
       : cluster === "testnet"
         ? WalletAdapterNetwork.Testnet
         : WalletAdapterNetwork.Devnet;
+
   const endpoint = useMemo(
     () => process.env.NEXT_PUBLIC_SOLANA_RPC ?? clusterApiUrl(network),
     [network],
   );
 
   const wallets = useMemo(
-    () => [new PhantomWalletAdapter(), new SolflareWalletAdapter()],
-    []
+    () => [
+      new PhantomWalletAdapter(),
+      new SolflareWalletAdapter(),
+      new BackpackWalletAdapter(),
+    ],
+    [],
   );
 
   return (

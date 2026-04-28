@@ -1,28 +1,55 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { verifyToken } from "@/lib/qr";
 
-export async function POST(request: Request) {
-  const body = (await request.json()) as { qrData?: string };
-  const qrData = body.qrData?.trim();
-  const secret = process.env.QR_SECRET;
+export async function POST(req: NextRequest) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  if (!qrData) {
-    return NextResponse.json({ error: "Missing qrData" }, { status: 400 });
-  }
-  if (!secret) {
-    return NextResponse.json({ error: "QR secret is not configured" }, { status: 500 });
+  const body = await req.json();
+  const { token, booking_id, place_id } = body;
+
+  if (
+    typeof token !== "string" ||
+    typeof booking_id !== "string" ||
+    typeof place_id !== "string"
+  ) {
+    return NextResponse.json({ error: "Invalid input" }, { status: 400 });
   }
 
-  const parts = qrData.split(":");
-  if (parts.length !== 4 || parts[0] !== "tcn") {
-    return NextResponse.json({ error: "Invalid QR format" }, { status: 400 });
-  }
-
-  const [, placeId, date, token] = parts;
-  const valid = verifyToken(placeId, date, token, secret);
-  if (!valid) {
+  const isValid = verifyToken(token, place_id);
+  if (!isValid) {
     return NextResponse.json({ error: "Invalid or expired QR token" }, { status: 400 });
   }
 
-  return NextResponse.json({ ok: true, placeId, date });
+  const service = createServiceClient();
+
+  const { data: booking } = await service
+    .from("bookings")
+    .select("id, tourist_id, status")
+    .eq("id", booking_id)
+    .single();
+
+  if (!booking || booking.tourist_id !== user.id) {
+    return NextResponse.json({ error: "Booking not found" }, { status: 404 });
+  }
+
+  const { data: checkin, error } = await service
+    .from("check_ins")
+    .insert({
+      booking_id,
+      user_id: user.id,
+      place_id,
+      method: "qr",
+      verified: true,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ checkin });
 }

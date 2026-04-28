@@ -48,7 +48,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession(data.session);
       setUser(data.session?.user ?? null);
       if (data.session?.user) {
-        const profile = await supabase.from("users").select("role").eq("id", data.session.user.id).maybeSingle();
+        const profile = await supabase
+          .from("users")
+          .select("role")
+          .eq("id", data.session.user.id)
+          .maybeSingle();
         if (active && profile.data?.role) {
           setRole(profile.data.role as AppRole);
         }
@@ -75,13 +79,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [wallet]);
 
-  const linkWallet = useCallback(async (args: { walletAddress: string; signature: string; nonce: string }) => {
-    return fetch("/api/auth/link-wallet", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(args),
-    });
-  }, []);
+  const linkWallet = useCallback(
+    async (args: { walletAddress: string; signature: string; nonce: string }) => {
+      return fetch("/api/auth/link-wallet", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(args),
+      });
+    },
+    [],
+  );
 
   const signOut = useCallback(async () => {
     await emailSignOut();

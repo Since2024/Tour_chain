@@ -6,15 +6,20 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-tourchain_reputation = "2GWdm3guUBQBLdA3VB9ECAwzN6UdpEMgs2VrKHiKfBXy"
-tourchain_escrow = "11111111111111111111111111111111"
-tourchain_proof = "11111111111111111111111111111111"
+tourchain_reputation = "BxgSbUELdL9cCj4hETtFJqyzDqFeRKAYefWBnVpDXk3L"
+tourchain_escrow = "B1M6gHx7W2tKPWwEEuKaumyk2H8zdETZGoBCDt9yamrt"
+tourchain_proof = "EvRzd8MXqxojEmn4jViXv8NyxVXoU3X1gEuSv1tw9qML"
+
+[programs.devnet]
+tourchain_reputation = "BxgSbUELdL9cCj4hETtFJqyzDqFeRKAYefWBnVpDXk3L"
+tourchain_escrow = "B1M6gHx7W2tKPWwEEuKaumyk2H8zdETZGoBCDt9yamrt"
+tourchain_proof = "EvRzd8MXqxojEmn4jViXv8NyxVXoU3X1gEuSv1tw9qML"
 
 [provider]
 cluster = "devnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]
-test = "cargo test"
+test = "yarn ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"
 
 [hooks]
