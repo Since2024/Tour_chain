@@ -3,6 +3,7 @@ import { Playfair_Display, DM_Sans } from "next/font/google";
 import "./globals.css";
 import { SolanaProvider } from "@/components/SolanaProvider";
 import { Navbar } from "@/components/Navbar";
+import { AuthProvider } from "@/components/AuthProvider";
 
 const playfair = Playfair_Display({
   subsets: ["latin"],
@@ -28,10 +29,12 @@ export default function RootLayout({
     <html lang="en" className={`${playfair.variable} ${dmSans.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col font-dm-sans bg-summit-white">
         <SolanaProvider>
-          <Navbar />
-          <div className="flex-1">
-            {children}
-          </div>
+          <AuthProvider>
+            <Navbar />
+            <div className="flex-1">
+              {children}
+            </div>
+          </AuthProvider>
         </SolanaProvider>
       </body>
     </html>

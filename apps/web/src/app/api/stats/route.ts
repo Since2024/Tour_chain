@@ -5,7 +5,7 @@ export async function GET() {
   try {
     const supabase = createServiceClient();
 
-    const [touristsRes, nftsRes, bookingsRes] = await Promise.all([
+    const [touristsRes, proofsRes, bookingsRes] = await Promise.all([
       supabase
         .from("users")
         .select("id", { count: "exact", head: true })
@@ -13,21 +13,24 @@ export async function GET() {
       supabase
         .from("completion_proofs")
         .select("id", { count: "exact", head: true }),
-      supabase
-        .from("bookings")
-        .select("id", { count: "exact", head: true })
-        .in("status", ["confirmed", "active"]),
+      supabase.from("bookings").select("total_price_usd"),
     ]);
+
+    const totalEscrowUsd = (bookingsRes.data ?? []).reduce(
+      (acc, row) => acc + Number(row.total_price_usd || 0),
+      0,
+    );
 
     return NextResponse.json({
       tourists: touristsRes.count ?? 0,
-      nftsMinted: nftsRes.count ?? 0,
-      activeBookings: bookingsRes.count ?? 0,
+      nftsMinted: proofsRes.count ?? 0,
+      proofs: proofsRes.count ?? 0,
+      totalEscrowUsd,
     });
   } catch {
     return NextResponse.json(
-      { tourists: 0, nftsMinted: 0, activeBookings: 0 },
-      { status: 200 }
+      { tourists: 0, nftsMinted: 0, proofs: 0, totalEscrowUsd: 0 },
+      { status: 200 },
     );
   }
 }

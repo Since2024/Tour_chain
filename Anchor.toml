@@ -16,7 +16,7 @@ tourchain_escrow = "B1M6gHx7W2tKPWwEEuKaumyk2H8zdETZGoBCDt9yamrt"
 tourchain_proof = "EvRzd8MXqxojEmn4jViXv8NyxVXoU3X1gEuSv1tw9qML"
 
 [provider]
-cluster = "localnet"
+cluster = "devnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]

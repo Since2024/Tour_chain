@@ -1,57 +1,54 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
+import { linkWallet } from "@/lib/auth/wallet";
 import { createClient } from "@/lib/supabase/server";
-import { buildSignMessage, verifyWalletSignature } from "@/lib/auth/wallet";
 
-const NONCE_TTL_MS = 5 * 60 * 1000;
 const usedNonces = new Set<string>();
 
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
-    const body = await request.json();
-    const { walletAddress, signature, nonce } = body ?? {};
+    const body = (await request.json()) as {
+      walletAddress?: string;
+      signature?: string;
+      nonce?: string;
+    };
+
+    const walletAddress = body.walletAddress?.trim();
+    const signature = body.signature?.trim();
+    const nonce = body.nonce?.trim();
 
     if (!walletAddress || !signature || !nonce) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+      return NextResponse.json({ error: "Missing walletAddress, signature, or nonce" }, { status: 400 });
     }
 
-    const nonceTs = parseInt(nonce, 10);
-    if (isNaN(nonceTs) || Date.now() - nonceTs > NONCE_TTL_MS) {
-      return NextResponse.json({ error: "Nonce expired or invalid" }, { status: 400 });
-    }
     if (usedNonces.has(nonce)) {
       return NextResponse.json({ error: "Nonce already used" }, { status: 400 });
     }
 
-    const message = buildSignMessage(nonce, walletAddress);
-    const valid = verifyWalletSignature(message, signature, walletAddress);
-    if (!valid) {
-      return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
-    }
-
     const supabase = await createClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (!supabase) {
+      return NextResponse.json({ error: "Supabase env is not configured" }, { status: 500 });
+    }
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
     if (authError || !user) {
-      return NextResponse.json({ error: "Authentication required" }, { status: 400 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { error } = await supabase
-      .from("users")
-      .update({ wallet_address: walletAddress })
-      .eq("id", user.id);
-
+    const { error } = await linkWallet(user.id, walletAddress, signature, nonce);
     if (error) {
-      if (error.code === "23505") {
-        return NextResponse.json(
-          { error: "Wallet already linked to another account" },
-          { status: 400 }
-        );
-      }
-      return NextResponse.json({ error: "Failed to link wallet" }, { status: 400 });
+      return NextResponse.json({ error }, { status: 400 });
     }
 
     usedNonces.add(nonce);
-    return NextResponse.json({ success: true });
+    if (usedNonces.size > 5000) {
+      usedNonces.clear();
+    }
+
+    return NextResponse.json({ ok: true });
   } catch {
-    return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+    return NextResponse.json({ error: "Failed to link wallet" }, { status: 500 });
   }
 }

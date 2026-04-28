@@ -13,10 +13,10 @@ This document is execution, not strategy. Every item is file-specific.
 The repo has three structural problems:
 
 1. **Two backends doing the same job.** `backend/` (Express + Mongoose + MongoDB, port 3001) duplicates what Supabase + Next.js API routes should own. One route crashes on invocation (`actions.js:64`, undefined `connection`), three have zero auth, one falls back to a Windows-only keypair path.
-2. **Six dead Anchor programs.** Only `tourism_registry` is deployed. `booking_escrow` and `experience_nft` are partial. `loyalty_token`, `dao_governance`, `route_registry`, `carbon_credits`, `pricing_oracle`, `sos_insurance` are stubs carrying maintenance cost and program IDs without shipping anything.
+2. **Seven dead Anchor programs.** Only `tourism_registry` is deployed. `booking_escrow` and `experience_nft` are partial. `loyalty_token`, `dao_governance`, `route_registry`, `carbon_credits`, `pricing_oracle`, `sos_insurance` are stubs carrying maintenance cost and program IDs without shipping anything.
 3. **A broken SDK.** `sdk/src/index.ts` initializes every program with `{} as Idl`. Every call through it fails at runtime. `sdk/src/booking.ts` is corrupted/binary.
 
-After cleanup: `apps/web/` (Next.js 15 monolith), `programs/{tourchain_reputation, tourchain_escrow, tourchain_proof}`, `supabase/` (migrations + edge functions). `backend/` and `sdk/` disappear. Six program directories disappear.
+After cleanup: `apps/web/` (Next.js 15 monolith), `programs/{tourchain_reputation, tourchain_escrow, tourchain_proof}`, `supabase/` (migrations + edge functions). `backend/` and `sdk/` disappear. Seven program directories disappear.
 
 ---
 
@@ -48,12 +48,14 @@ After cleanup: `apps/web/` (Next.js 15 monolith), `programs/{tourchain_reputatio
 | `programs/pricing_oracle/` | DELETE — manual pricing in `services` table |
 | `programs/sos_insurance/` | DELETE — any-signer payout bug; out of scope |
 | `programs/experience_nft/` | DELETE — replaced by `tourchain_proof` with proper Bubblegum CPI |
+| `programs/tourism_registry/` | RENAME → `programs/tourchain_reputation/` (preserve keypair/program ID where possible) |
+| `programs/booking_escrow/` | RENAME → `programs/tourchain_escrow/` (preserve keypair/program ID where possible) |
 
 ### SDK
 
 | Path | Reason |
 |---|---|
-| `sdk/` (entire directory) | Empty IDLs break every call; only consumer is frontend; internal SDK = pure maintenance cost. Frontend imports IDLs directly from `target/idl/*.json` |
+| `sdk/` (entire directory) | Empty IDLs break every call; only consumer is `apps/web`; internal SDK = pure maintenance cost. `apps/web` imports IDLs directly from `target/idl/*.json` |
 | `sdk/src/booking.ts` | Corrupted/binary file |
 
 ### Frontend dead paths
@@ -77,7 +79,7 @@ After cleanup: `apps/web/` (Next.js 15 monolith), `programs/{tourchain_reputatio
 
 | Old | New |
 |---|---|
-| Express server on `:3001` | Next.js route handlers at `apps/web/src/app/api/*` |
+| Express server on `:3001` | Next.js API routes at `apps/web/src/app/api/*` |
 | MongoDB + Mongoose | Supabase Postgres with RLS |
 | Backend keypair signing user TXs | User-signed TXs via wallet adapter; platform keypair only for admin ops |
 | `MERKLE_TREE_PUBKEY` env var (never set) | `scripts/init-merkle-tree.ts` runs once, writes to `.env.local` |
@@ -159,7 +161,7 @@ tourchain/
 ├── scripts/
 │   ├── init-merkle-tree.ts
 │   ├── seed-devnet.ts
-│   └── copy-idl.sh
+│   └── copy-idl.ts
 ├── Anchor.toml                       # forward-slash wallet path
 ├── rust-toolchain.toml               # pinned 1.79.0
 ├── Cargo.toml                        # workspace with 3 programs
@@ -168,7 +170,7 @@ tourchain/
 
 ### Ownership rules
 
-- **Next.js** owns UI, auth middleware, route handlers for platform-signed ops, wallet-adapter integration.
+- **Next.js** owns UI, auth middleware, API routes for platform-signed ops, wallet-adapter integration.
 - **Supabase** owns relational data, auth, storage, RLS, realtime, server-side aggregation.
 - **Solana** owns exactly three things: guide reputation PDA, booking escrow PDA with SOL vault, completion proof cNFTs. Nothing else.
 - **Arweave** owns permanent NFT metadata in V1. MVP uses Supabase Storage; swap is a URI change.
@@ -192,11 +194,11 @@ Delete the entire `backend/` directory EXCEPT `backend/src/services/qrService.js
 6. Update root README.md to remove Express/MongoDB/port-3001 references.
 
 Acceptance:
-- `rg -i "mongoose|mongodb|express" apps/ programs/` returns zero matches.
-- `ls backend/` fails.
+- `rg -i "mongoose|mongodb|express" apps/web/src programs/` returns zero matches.
+- `node -e "const fs=require('fs'); process.exit(fs.existsSync('backend') ? 1 : 0)"` exits 0.
 - `apps/web/src/lib/qr.ts` exists and compiles.
 
-Do not touch programs/ or the frontend data-fetching layer in this prompt.
+Do not touch programs/ or the `apps/web` data-fetching layer in this prompt.
 ```
 
 ### Prompt 2 — Wire Supabase as source of truth
@@ -212,7 +214,7 @@ Create the Supabase project layer at repo root.
 
 4. Create `supabase/migrations/0004_seed.sql` with: 5 Nepal routes (Everest Base Camp, Annapurna Circuit, Langtang Valley, Manaslu Circuit, Poon Hill), 15 places with real lat/lng, 3 verified guides with bios, 10 quests including a "Laughing Island" endpoint quest.
 
-5. Install in apps/web: `@supabase/supabase-js @supabase/ssr zod`.
+5. Install in apps/web: `@supabase/supabase-js`, `@supabase/ssr`, `zod`.
 
 6. Create `apps/web/src/lib/supabase/client.ts`, `server.ts`, `middleware.ts` using @supabase/ssr.
 
@@ -223,7 +225,7 @@ Create the Supabase project layer at repo root.
 
 Acceptance:
 - `supabase db reset` applies all 4 migrations with zero errors.
-- `SELECT count(*) FROM routes` returns 5, places returns 15, guides returns 3.
+- SQL verification confirms counts: routes=5, places=15, guides=3.
 - Supabase client factories exist and type-check.
 
 Do not build UI in this prompt.
@@ -298,12 +300,12 @@ Acceptance:
 
 6. Update rust-toolchain.toml to channel = "1.79.0".
 
-7. Delete the `sdk/` directory entirely. Any frontend code importing from it: delete those call sites (they will be rebuilt in Prompt 7). Do NOT leave commented-out imports.
+7. Delete the `sdk/` directory entirely. Any `apps/web` code importing from it: delete those call sites (they will be rebuilt in Prompt 7). Do NOT leave commented-out imports.
 
 8. Remove any root package.json scripts referencing sdk/ or deleted programs.
 
 Acceptance:
-- `ls programs/` shows exactly three directories.
+- `node -e "const fs=require('fs'); const dirs=fs.readdirSync('programs',{withFileTypes:true}).filter(d=>d.isDirectory()).length; process.exit(dirs===3?0:1)"` exits 0.
 - `anchor build` succeeds.
 - `cargo metadata --format-version 1` lists three workspace crates.
 - `sdk/` does not exist.
@@ -408,7 +410,7 @@ Errors: UnauthorizedAdmin, NameTooLong, SymbolTooLong, UriTooLong.
 Also create `scripts/init-merkle-tree.ts`:
 - Use @metaplex-foundation/mpl-bubblegum Umi plugin
 - Read keypair from ANCHOR_WALLET env (fail loudly if missing)
-- Read RPC from SOLANA_RPC env (default devnet)
+- Read RPC from SOLANA_RPC env (fallback to NEXT_PUBLIC_SOLANA_RPC, then devnet)
 - Check balance >= 2 SOL before proceeding
 - createTree({ maxDepth: 14, maxBufferSize: 64, canopyDepth: 0 }) supporting ~16K mints
 - Print tree address; append NEXT_PUBLIC_MERKLE_TREE={addr} to apps/web/.env.local
@@ -421,19 +423,19 @@ Guard against:
 Acceptance:
 - `anchor build` succeeds across all three programs.
 - `anchor test` passes non-admin rejection test.
-- `ts-node scripts/init-merkle-tree.ts` creates a tree on devnet and prints address.
+- `pnpm tsx scripts/init-merkle-tree.ts` creates a tree on devnet and prints address.
 ```
 
-### Prompt 7 — Wire frontend to real data, kill all mocks
+### Prompt 7 — Wire `apps/web` to real data, kill all mocks
 
 ```
 Rewire apps/web from stubs/mocks to real Supabase + real Solana.
 
-1. Downgrade Next.js: apps/web/package.json "next": "^15.2.0", "react": "^18.3.0", "react-dom": "^18.3.0". Install. Resolve any Next 16-only syntax.
+1. Downgrade Next.js only if required by project/toolchain compatibility: apps/web/package.json "next": "^15.2.0", "react": "^18.3.0", "react-dom": "^18.3.0". Install and resolve any Next 16-only syntax if downgrade is applied.
 
 2. Create apps/web/src/lib/solana/:
    - anchor.ts: getProvider(wallet), getProgram<T>(idl, programId, provider)
-   - idl/ : copy target/idl/*.json files here; add scripts/copy-idl.sh run after anchor build
+   - idl/ : copy target/idl/*.json files here; add cross-platform `scripts/copy-idl.ts` run after anchor build
    - reputation.ts: getGuidePda(wallet), fetchGuideReputation(wallet) (null if uninitialized)
    - escrow.ts: createEscrow, releaseMilestone, completeBooking, cancelBooking (return tx signatures)
    - proof.ts: client helper that POSTs to /api/proof/mint
@@ -452,7 +454,7 @@ Rewire apps/web from stubs/mocks to real Supabase + real Solana.
    - Enable check-in button only when browser geolocation within 500m of next unchecked-in checkpoint (client-side gate; server revalidates)
    - POST /api/checkin with { booking_id, place_id, lat, lng }
 
-5. Create route handlers:
+5. Create API routes:
    - /api/checkin: validates GPS (haversine server-side), inserts check_ins, verified=true
    - /api/checkin/qr-verify: uses lib/qr.ts for HMAC
    - /api/booking/prepare: returns escrow PDA and expected instruction for client to sign
@@ -460,7 +462,7 @@ Rewire apps/web from stubs/mocks to real Supabase + real Solana.
 
 6. Fix apps/web/src/components/Map.tsx — token ONLY from NEXT_PUBLIC_MAPBOX_TOKEN.
 
-7. Run `npx ts-prune` and delete unreferenced mock files.
+7. Run `pnpm dlx ts-prune` and delete unreferenced mock files.
 
 Guard against:
 - Wallet not connected — always check publicKey before on-chain calls.
@@ -472,7 +474,7 @@ Acceptance:
 - Test wallet can browse → book → sign create_escrow → record in Supabase AND on-chain.
 - `rg "1,248|4,520|4520 SOL" apps/web/src/` returns zero matches.
 - `rg "pk\\.ey" apps/web/src/` returns zero hardcoded Mapbox tokens (only env references).
-- `npm run build` succeeds.
+- `pnpm --filter apps/web build` succeeds.
 ```
 
 ### Prompt 8 — Env + config hygiene
@@ -506,7 +508,7 @@ Fix all environment, config, and secret management.
 
 4. .gitignore additions: .env, .env.local, .env.*.local, *.keypair.json, target/, .next/, dist/.
 
-5. Audit: `rg -i "sk_|eyJ[A-Za-z0-9_-]{20,}" .` — if secrets found, rotate and scrub from git history.
+5. Audit: `rg -i "sk_|eyJ[A-Za-z0-9_-]{20,}"` — if secrets found, rotate and scrub from git history.
 
 6. Solana network config:
    - Anchor.toml [provider] cluster = "devnet"
@@ -583,7 +585,7 @@ Lock down the working system.
    - apps/web/tests/auth.test.tsx: middleware redirects
 
 4. Dead code sweep:
-   - `npx ts-prune` — delete unused exports (except route/page/layout)
+   - `pnpm dlx ts-prune` — delete unused exports (except route/page/layout)
    - `cargo +nightly udeps` — remove unused Rust deps
    - `rg "TODO|FIXME|XXX"` — resolve all in hot paths (booking, check-in, escrow, proof)
    - Delete commented-out blocks > 3 lines
@@ -598,7 +600,7 @@ Guard against:
 
 Acceptance:
 - `pnpm test` and `anchor test` both pass.
-- ts-prune output is empty or only lists intentional exports.
+- `pnpm dlx ts-prune` output is empty or only lists intentional exports.
 - `rg "TODO" apps/web/src/app/api/` returns zero hits.
 - CI green on fresh push.
 ```
@@ -607,7 +609,7 @@ Acceptance:
 
 ## 7. Safe Execution Order
 
-Execute prompts strictly in this order. Each depends on the previous.
+Default execution is strict in this order. Parallelization is allowed only where explicitly marked and only after dependency checks pass.
 
 | # | Prompt | Why this position |
 |---|---|---|
@@ -615,9 +617,9 @@ Execute prompts strictly in this order. Each depends on the previous.
 | 2 | Supabase schema | Establishes new source of truth before anything reads from it |
 | 3 | Auth | Required before any protected route or authenticated API is built |
 | 4 | Prune Anchor programs | Structural cleanup; program IDs don't matter yet |
-| 5 | Implement reputation + escrow | Core on-chain logic; IDLs unblock frontend |
+| 5 | Implement reputation + escrow | Core on-chain logic; IDLs unblock `apps/web` |
 | 6 | Implement proof | Depends on Bubblegum tree init step |
-| 7 | Wire frontend | Needs working IDLs from 5–6 and Supabase from 2 |
+| 7 | Wire `apps/web` | Needs working IDLs from 5–6 and Supabase from 2 |
 | 8 | Env + config hygiene | Best after all env variables are known |
 | 9 | Error handling + validation | Apply uniformly to all routes that now exist |
 | 10 | Tests + dead code sweep | Last — locks down working system |
@@ -625,7 +627,7 @@ Execute prompts strictly in this order. Each depends on the previous.
 ### Never touch until dependencies stable
 
 - Do not run Prompt 7 before Prompts 5+6. Frontend compiles but all on-chain calls fail silently.
-- Do not delete `sdk/` before confirming no frontend code imports from it — Prompt 4 handles this; verify before deleting.
+- Do not delete `sdk/` before confirming no `apps/web` code imports from it — Prompt 4 handles this; verify before deleting.
 - Do not run migrations on shared Supabase before seeding locally with `supabase db reset`.
 - Do not deploy to mainnet until all tests pass on devnet and one full e2e run succeeds.
 
@@ -653,6 +655,7 @@ Execute prompts strictly in this order. Each depends on the previous.
 12. **PDA seeds byte-exact match between client and program.** Seed mismatches = #1 source of silent failures.
 13. **Never regress TypeScript strict or Rust overflow-checks.**
 14. **Never log sensitive data.** Keypairs, service role keys, emails in production logs = never.
+15. **Anchor version must be uniform across all programs.** Do not mix `anchor-lang`/`anchor-spl` versions across workspace crates.
 
 ---
 
@@ -665,7 +668,7 @@ Execute prompts strictly in this order. Each depends on the previous.
 5. **Next.js 16 → 15 syntax regressions.** Some Next 16 patterns (new caching, async params) don't compile in Next 15. Expect to rewrite several `page.tsx` files.
 6. **Anchor version mismatch.** Mixing `anchor-lang = "0.29"` and `"0.30"` across programs explodes workspace compilation. Pin one version.
 7. **Wallet address collision.** Two users linking the same wallet must be rejected. Without `UNIQUE` on `users.wallet_address`, a race lets two accounts share a wallet. Add constraint + server-side pre-check.
-8. **IDL staleness.** If `target/idl/*.json` is checked in, engineers forget to re-copy after `anchor build` and frontend calls with outdated structs. Regenerate on every build via postbuild script, or don't check IDLs in and copy at build time.
+8. **IDL staleness.** If `target/idl/*.json` is checked in, engineers forget to re-copy after `anchor build` and `apps/web` calls with outdated structs. Regenerate on every build via postbuild script, or don't check IDLs in and copy at build time.
 9. **Dev vs prod keypair leak.** `SOLANA_PLATFORM_KEYPAIR` must be separate env vars in separate Vercel environments. Confirm before enabling mainnet.
 10. **Materialized view staleness.** `leaderboard` doesn't auto-refresh. Forgetting `REFRESH MATERIALIZED VIEW leaderboard` on review insert freezes rankings. Wire into a Supabase trigger or scheduled edge function.
 

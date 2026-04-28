@@ -1,126 +1,125 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
-import { useWallet } from "@solana/wallet-adapter-react";
-import { createClient } from "@/lib/supabase/client";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { Session, User } from "@supabase/supabase-js";
-import { signIn as emailSignIn, signOut as emailSignOut } from "@/lib/auth/email";
-import { buildSignMessage } from "@/lib/auth/wallet";
+import { useWallet } from "@solana/wallet-adapter-react";
+import { signIn as emailSignIn, signOut as emailSignOut, signUp as emailSignUp } from "@/lib/auth/email";
 
-interface AuthContextValue {
+type AppRole = "tourist" | "guide" | "admin";
+
+type AuthContextValue = {
   user: User | null;
   session: Session | null;
   wallet: ReturnType<typeof useWallet>;
   isGuide: boolean;
   isAdmin: boolean;
-  signIn: (email: string, password: string) => Promise<{ error: string | null }>;
+  signIn: typeof emailSignIn;
   signOut: () => Promise<void>;
+  signUp: typeof emailSignUp;
   connectWallet: () => Promise<void>;
-  linkWallet: () => Promise<{ error: string | null }>;
-}
+  linkWallet: (args: { walletAddress: string; signature: string; nonce: string }) => Promise<Response>;
+};
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const supabase = createClient();
   const wallet = useWallet();
-  const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  const [role, setRole] = useState<string | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [role, setRole] = useState<AppRole>("tourist");
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-    });
+    let active = true;
+    let unsubscribe: (() => void) | undefined;
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-    });
+    async function loadSession() {
+      const { createClient } = await import("@/lib/supabase/client");
+      const supabase = createClient();
+      if (!supabase) {
+        if (active) {
+          setSession(null);
+          setUser(null);
+          setRole("tourist");
+        }
+        return;
+      }
+      const { data } = await supabase.auth.getSession();
+      if (!active) return;
+      setSession(data.session);
+      setUser(data.session?.user ?? null);
+      if (data.session?.user) {
+        const profile = await supabase
+          .from("users")
+          .select("role")
+          .eq("id", data.session.user.id)
+          .maybeSingle();
+        if (active && profile.data?.role) {
+          setRole(profile.data.role as AppRole);
+        }
+      }
+      const {
+        data: { subscription },
+      } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+        setSession(nextSession);
+        setUser(nextSession?.user ?? null);
+      });
+      unsubscribe = () => subscription.unsubscribe();
+    }
 
-    return () => subscription.unsubscribe();
+    void loadSession();
+    return () => {
+      active = false;
+      unsubscribe?.();
+    };
   }, []);
 
-  useEffect(() => {
-    if (!user) { setRole(null); return; }
-    supabase
-      .from("users")
-      .select("role")
-      .eq("id", user.id)
-      .single()
-      .then(({ data }) => setRole(data?.role ?? null));
-  }, [user]);
+  const connectWallet = useCallback(async () => {
+    if (!wallet.connected) {
+      await wallet.connect();
+    }
+  }, [wallet]);
 
-  const signIn = useCallback(async (email: string, password: string) => {
-    const { error } = await emailSignIn(email, password);
-    return { error: error?.message ?? null };
-  }, []);
+  const linkWallet = useCallback(
+    async (args: { walletAddress: string; signature: string; nonce: string }) => {
+      return fetch("/api/auth/link-wallet", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(args),
+      });
+    },
+    [],
+  );
 
   const signOut = useCallback(async () => {
     await emailSignOut();
-    wallet.disconnect();
-  }, [wallet]);
+    setSession(null);
+    setUser(null);
+    setRole("tourist");
+  }, []);
 
-  const connectWallet = useCallback(async () => {
-    if (!wallet.select) return;
-    await wallet.connect();
-  }, [wallet]);
-
-  const linkWallet = useCallback(async () => {
-    if (!wallet.publicKey || !wallet.signMessage || !user) {
-      return { error: "Wallet not connected or not signed in" };
-    }
-
-    const nonce = String(Date.now());
-    const message = buildSignMessage(nonce, wallet.publicKey.toBase58());
-    const encoded = new TextEncoder().encode(message);
-
-    let signatureBytes: Uint8Array;
-    try {
-      signatureBytes = await wallet.signMessage(encoded);
-    } catch {
-      return { error: "User rejected signature" };
-    }
-
-    const bs58 = await import("bs58");
-    const signature = bs58.default.encode(signatureBytes);
-
-    const res = await fetch("/api/auth/link-wallet", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        walletAddress: wallet.publicKey.toBase58(),
-        signature,
-        nonce,
-      }),
-    });
-
-    const data = await res.json();
-    return { error: data.error ?? null };
-  }, [wallet, user]);
-
-  return (
-    <AuthContext.Provider
-      value={{
-        user,
-        session,
-        wallet,
-        isGuide: role === "guide",
-        isAdmin: role === "admin",
-        signIn,
-        signOut,
-        connectWallet,
-        linkWallet,
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
+  const value = useMemo<AuthContextValue>(
+    () => ({
+      user,
+      session,
+      wallet,
+      isGuide: role === "guide",
+      isAdmin: role === "admin",
+      signIn: emailSignIn,
+      signOut,
+      signUp: emailSignUp,
+      connectWallet,
+      linkWallet,
+    }),
+    [connectWallet, linkWallet, role, session, signOut, user, wallet],
   );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth must be used inside AuthProvider");
-  return ctx;
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error("useAuth must be used inside AuthProvider");
+  }
+  return context;
 }

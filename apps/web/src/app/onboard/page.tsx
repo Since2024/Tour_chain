@@ -14,6 +14,7 @@ import {
 import { useState } from "react";
 import dynamic from "next/dynamic";
 import { useWallet } from "@solana/wallet-adapter-react";
+import { useRouter } from "next/navigation";
 
 const WalletMultiButton = dynamic(
   async () => (await import("@solana/wallet-adapter-react-ui")).WalletMultiButton,
@@ -30,6 +31,10 @@ const steps = [
 export default function OnboardingPage() {
   const [currentStep, setCurrentStep] = useState(0);
   const { connected } = useWallet();
+  const router = useRouter();
+  const [country, setCountry] = useState("");
+  const [arrival, setArrival] = useState("");
+  const [departure, setDeparture] = useState("");
 
   const nextStep = () => {
     if (currentStep === 0 && !connected) return;
@@ -101,7 +106,7 @@ export default function OnboardingPage() {
                   </motion.div>
                 )}
                 <p className="text-center text-xs text-himalayan-blue/40 italic">
-                  New to Solana? We'll help you bootstrap your traveler's profile.
+                  New to Solana? We&apos;ll help you bootstrap your traveler&apos;s profile.
                 </p>
               </motion.div>
             )}
@@ -124,18 +129,34 @@ export default function OnboardingPage() {
                 <div className="space-y-4">
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold uppercase tracking-widest text-himalayan-blue/40 ml-1">Home Country</label>
-                    <input type="text" placeholder="e.g. United Kingdom" className="w-full p-4 bg-zinc-50 rounded-xl border border-himalayan-blue/10 font-dm-sans focus:outline-none focus:ring-2 focus:ring-himalayan-blue/5 transition-all hover:bg-zinc-100" />
+                    <input
+                      type="text"
+                      value={country}
+                      onChange={(event) => setCountry(event.target.value)}
+                      placeholder="e.g. United Kingdom"
+                      className="w-full p-4 bg-zinc-50 rounded-xl border border-himalayan-blue/10 font-dm-sans focus:outline-none focus:ring-2 focus:ring-himalayan-blue/5 transition-all hover:bg-zinc-100"
+                    />
                   </div>
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold uppercase tracking-widest text-himalayan-blue/40 ml-1">Arrival Window</label>
                     <div className="flex gap-4">
                       <div className="flex-1 relative">
                         <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-himalayan-blue/40" />
-                        <input type="text" placeholder="Arrive" className="w-full pl-10 pr-4 py-4 bg-zinc-50 rounded-xl border border-himalayan-blue/10 text-sm hover:bg-zinc-100 transition-all font-dm-sans" />
+                        <input
+                          type="date"
+                          value={arrival}
+                          onChange={(event) => setArrival(event.target.value)}
+                          className="w-full pl-10 pr-4 py-4 bg-zinc-50 rounded-xl border border-himalayan-blue/10 text-sm hover:bg-zinc-100 transition-all font-dm-sans"
+                        />
                       </div>
                       <div className="flex-1 relative">
                         <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-himalayan-blue/40" />
-                        <input type="text" placeholder="Depart" className="w-full pl-10 pr-4 py-4 bg-zinc-50 rounded-xl border border-himalayan-blue/10 text-sm hover:bg-zinc-100 transition-all font-dm-sans" />
+                        <input
+                          type="date"
+                          value={departure}
+                          onChange={(event) => setDeparture(event.target.value)}
+                          className="w-full pl-10 pr-4 py-4 bg-zinc-50 rounded-xl border border-himalayan-blue/10 text-sm hover:bg-zinc-100 transition-all font-dm-sans"
+                        />
                       </div>
                     </div>
                   </div>
@@ -195,7 +216,10 @@ export default function OnboardingPage() {
                   verifiable experiences and earn $TREK rewards.
                 </p>
                 <div className="py-8">
-                  <button className="w-full py-5 bg-himalayan-blue text-summit-white rounded-2xl font-bold text-xl shadow-xl shadow-himalayan-blue/20 flex items-center justify-center gap-3 hover:scale-[1.02] transition-transform">
+                  <button
+                    onClick={() => router.push("/explore")}
+                    className="w-full py-5 bg-himalayan-blue text-summit-white rounded-2xl font-bold text-xl shadow-xl shadow-himalayan-blue/20 flex items-center justify-center gap-3 hover:scale-[1.02] transition-transform"
+                  >
                     Find My First Trek
                     <Compass className="w-6 h-6 animate-pulse" />
                   </button>

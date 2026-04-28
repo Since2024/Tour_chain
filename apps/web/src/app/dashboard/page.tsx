@@ -1,252 +1,313 @@
 "use client";
 
-import { motion } from "framer-motion";
-import { 
-  Award, 
-  MapPin, 
-  ArrowUpRight, 
-  Compass, 
-  Wallet,
-  Clock,
-  ChevronRight,
-  CheckCircle2
-} from "lucide-react";
-import Image from "next/image";
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 
-const initialStats = [
-  { id: 'altitude', label: "Altitude Gained", value: 12450, suffix: 'm', icon: ArrowUpRight, color: "text-trekker-orange" },
-  { id: 'distance', label: "Distance Trekked", value: 142, suffix: 'km', icon: MapPin, color: "text-forest-green" },
-  { id: 'balance', label: "$TREK Balance", value: 2450, suffix: '', icon: Wallet, color: "text-himalayan-blue" },
-  { id: 'expeditions', label: "Expeditions", value: 4, suffix: '', icon: Compass, color: "text-prayer-red" },
-];
+type Booking = {
+  id: string;
+  status: string;
+  start_date: string;
+  end_date: string | null;
+  total_price_usd: number;
+  route?: { name?: string } | null;
+  service?: { title?: string } | null;
+};
 
-const nfts = [
-  {
-    id: "ebc-01",
-    name: "Everest Summit Badge",
-    date: "May 2025",
-    altitude: 8848,
-    image: "https://images.unsplash.com/photo-1544735716-392fe2489ffa?q=80&w=1000&auto=format&fit=crop"
-  },
-  {
-    id: "abc-01",
-    name: "Thorong La Pass",
-    date: "Oct 2024",
-    altitude: 5416,
-    image: "https://images.unsplash.com/photo-1544735716-392fe2489ffa?q=80&w=1000&auto=format&fit=crop"
-  }
-];
+const STATUS_MAP: Record<string, { label: string; color: string; bg: string; border: string; icon: string }> = {
+  confirmed: { label: "Confirmed", color: "text-blue-700",    bg: "bg-blue-50",    border: "border-blue-200",   icon: "✅" },
+  active:    { label: "Active",    color: "text-emerald-700", bg: "bg-emerald-50", border: "border-emerald-200", icon: "🚶" },
+  completed: { label: "Completed", color: "text-gray-600",    bg: "bg-gray-50",    border: "border-gray-200",   icon: "🏆" },
+  pending:   { label: "Pending",   color: "text-amber-700",   bg: "bg-amber-50",   border: "border-amber-200",  icon: "⏳" },
+  cancelled: { label: "Cancelled", color: "text-red-600",     bg: "bg-red-50",     border: "border-red-200",    icon: "❌" },
+};
 
-export default function TouristDashboard() {
-  const [stats, setStats] = useState(initialStats);
-  const [stakedAmount, setStakedAmount] = useState(1000);
-  const [aiRecommendation, setAiRecommendation] = useState<any>(null);
-  const [loadingAi, setLoadingAi] = useState(false);
-  const [showRewardToast, setShowRewardToast] = useState(false);
+function AnimatedNumber({ value, prefix = "" }: { value: number; prefix?: string }) {
+  const [display, setDisplay] = useState(0);
+  useEffect(() => {
+    let start = 0;
+    const step = Math.max(1, Math.ceil(value / 40));
+    const t = setInterval(() => {
+      start = Math.min(start + step, value);
+      setDisplay(start);
+      if (start >= value) clearInterval(t);
+    }, 25);
+    return () => clearInterval(t);
+  }, [value]);
+  return <>{prefix}{display}</>;
+}
 
-  const getAiPlan = async () => {
-    setLoadingAi(true);
-    setAiRecommendation(null);
-    try {
-      const res = await fetch("/api/planner", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nfts, trekBalance: stats.find(s => s.id === 'balance')?.value }),
-      });
-      const data = await res.json();
-      setAiRecommendation(data);
-    } catch (e) {
-      alert("Failed to connect to Summit AI. Using heuristic backup.");
-      setAiRecommendation({
-        recommendation: "Gosaikunda Lake Trek",
-        reasoning: "A holy serene trek perfect for your current experience level.",
-        difficulty: "Moderate"
-      });
-    } finally {
-      setLoadingAi(false);
-    }
-  };
+function StatCard({ icon, label, value, sub, accent }: { icon: string; label: string; value: React.ReactNode; sub?: string; accent: string }) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <div
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      className="rounded-2xl p-6 border transition-all duration-300 cursor-default"
+      style={{
+        background: hovered ? `${accent}18` : "rgba(255,255,255,0.9)",
+        borderColor: hovered ? `${accent}55` : "rgba(0,0,0,0.07)",
+        boxShadow: hovered ? `0 8px 32px ${accent}22` : "0 2px 12px rgba(0,0,0,0.05)",
+        transform: hovered ? "translateY(-3px)" : "translateY(0)",
+      }}
+    >
+      <div className="text-3xl mb-3">{icon}</div>
+      <p className="text-gray-500 text-sm mb-1">{label}</p>
+      <p className="text-3xl font-bold text-gray-900">{value}</p>
+      {sub && <p className="text-xs text-gray-400 mt-1">{sub}</p>}
+    </div>
+  );
+}
 
-  const handleClaimReward = () => {
-    setShowRewardToast(true);
-    setStats(prev => prev.map(s => s.id === 'balance' ? { ...s, value: s.value + 50 } : s));
-    setTimeout(() => setShowRewardToast(false), 3000);
-  };
+function BookingRow({ booking, index }: { booking: Booking; index: number }) {
+  const [visible, setVisible] = useState(false);
+  const [hovered, setHovered] = useState(false);
+  const cfg = STATUS_MAP[booking.status] ?? STATUS_MAP.pending;
 
-  const handleStakeMore = () => {
-    const amount = prompt("Enter $TREK amount to stake:", "100");
-    if (amount && !isNaN(parseInt(amount))) {
-      setStakedAmount(prev => prev + parseInt(amount));
-      setStats(prev => prev.map(s => s.id === 'balance' ? { ...s, value: s.value - parseInt(amount) } : s));
-      alert(`Successfully staked ${amount} $TREK! Your voting power and discounts have increased.`);
-    }
-  };
+  useEffect(() => {
+    const t = setTimeout(() => setVisible(true), index * 90);
+    return () => clearTimeout(t);
+  }, [index]);
+
+  const title = booking.route?.name ?? booking.service?.title ?? "Route Booking";
+  const start = new Date(booking.start_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  const end = booking.end_date ? new Date(booking.end_date).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : null;
+
+  const progressPct = booking.status === "active" && booking.end_date
+    ? Math.min(100, Math.round(((Date.now() - new Date(booking.start_date).getTime()) / (new Date(booking.end_date).getTime() - new Date(booking.start_date).getTime())) * 100))
+    : null;
 
   return (
-    <div className="pt-24 pb-12 px-4 max-w-7xl mx-auto min-h-screen">
-      {/* Reward Toast */}
-      {showRewardToast && (
-        <motion.div 
-          initial={{ y: -100, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          exit={{ y: -100, opacity: 0 }}
-          className="fixed top-24 left-1/2 -translate-x-1/2 z-50 bg-forest-green text-white px-6 py-3 rounded-full font-bold shadow-2xl flex items-center gap-2"
-        >
-          <CheckCircle2 className="w-5 h-5" /> +50 $TREK Claimed!
-        </motion.div>
-      )}
-
-      <header className="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6">
-        <div>
-          <h2 className="text-sm font-bold uppercase tracking-widest text-himalayan-blue/40 mb-2">Member Dashboard</h2>
-          <h1 className="text-5xl font-playfair text-himalayan-blue">Namaste, <span className="italic underline decoration-trekker-orange decoration-4 underline-offset-8">Trekker</span></h1>
-        </div>
-        <div className="flex gap-4">
-          <button 
-            onClick={handleClaimReward}
-            className="px-6 py-3 bg-white border border-himalayan-blue/10 rounded-xl font-bold flex items-center gap-2 hover:bg-zinc-50 transition-all active:scale-95"
-          >
-            <Award className="w-5 h-5 text-prayer-yellow" />
-            Claim Rewards
-          </button>
-        </div>
-      </header>
-
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-        {stats.map((stat, idx) => (
-          <motion.div
-            key={stat.label}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: idx * 0.1 }}
-            className="glass-card p-6 bg-white"
-          >
-            <div className={`w-12 h-12 rounded-xl bg-zinc-50 flex items-center justify-center mb-4 ${stat.color}`}>
-              <stat.icon className="w-6 h-6" />
+    <div style={{ opacity: visible ? 1 : 0, transform: visible ? "translateX(0)" : "translateX(-20px)", transition: "opacity 0.4s ease, transform 0.4s ease" }}>
+      <div
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        className="rounded-2xl border p-4 transition-all duration-300"
+        style={{
+          background: hovered ? "rgba(255,255,255,1)" : "rgba(255,255,255,0.85)",
+          borderColor: hovered ? "rgba(249,115,22,0.3)" : "rgba(0,0,0,0.07)",
+          boxShadow: hovered ? "0 8px 32px rgba(249,115,22,0.1)" : "0 2px 8px rgba(0,0,0,0.04)",
+          transform: hovered ? "translateX(4px)" : "translateX(0)",
+        }}
+      >
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-4">
+            <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl shrink-0 ${cfg.bg}`}>
+              {cfg.icon}
             </div>
-            <p className="text-himalayan-blue/40 text-sm font-medium mb-1">{stat.label}</p>
-            <p className="text-3xl font-playfair font-bold text-himalayan-blue">
-              {stat.value.toLocaleString()}{stat.suffix}
-            </p>
-          </motion.div>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-        {/* Main Content */}
-        <div className="lg:col-span-2 space-y-12">
-          {/* Active Bookings (Static for now) */}
-          <section>
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-2xl font-playfair">Active Bookings</h3>
-              <button className="text-trekker-orange text-sm font-bold flex items-center gap-1 hover:gap-2 transition-all">
-                View All <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="glass-card p-6 bg-white border-l-4 border-l-trekker-orange flex flex-col md:flex-row justify-between items-center gap-6">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-trekker-orange/10 rounded-full flex items-center justify-center">
-                  <Clock className="w-6 h-6 text-trekker-orange" />
-                </div>
-                <div>
-                  <h4 className="font-bold text-himalayan-blue">Annapurna Circuit</h4>
-                  <p className="text-sm text-himalayan-blue/40">Highland Adventures • Oct 12 - Oct 26</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-8">
-                <div className="text-right">
-                  <p className="text-xs text-himalayan-blue/40 uppercase font-bold tracking-widest">Amount Locked</p>
-                  <p className="font-bold text-himalayan-blue">950 USDC</p>
-                </div>
-                <span className="px-4 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-full uppercase">
-                  Confirmed
-                </span>
-              </div>
-            </div>
-          </section>
-
-          {/* NFT Gallery */}
-          <section>
-            <h3 className="text-2xl font-playfair mb-6">Experience Artifacts</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              {nfts.map((nft) => (
-                <div key={nft.id} className="group glass-card overflow-hidden bg-white hover:shadow-2xl transition-all cursor-pointer">
-                  <div className="relative h-64 overflow-hidden">
-                    <Image src={nft.image} alt={nft.name} fill className="object-cover group-hover:scale-105 transition-transform duration-700" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-himalayan-blue/80 via-transparent to-transparent opacity-60" />
-                    <div className="absolute bottom-4 left-4">
-                      <p className="text-white font-bold text-xl drop-shadow-md">{nft.name}</p>
-                      <p className="text-white/70 text-sm">{nft.altitude}m • {nft.date}</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-        </div>
-
-        {/* Sidebar */}
-        <div className="lg:col-span-1 space-y-8">
-          {/* Staking Panel */}
-          <div className="glass-card p-8 bg-himalayan-blue text-summit-white">
-            <h3 className="text-xl font-playfair mb-2">Stake $TREK</h3>
-            <p className="text-summit-white/60 text-sm mb-6 font-dm-sans">
-              Stake your loyalty tokens to unlock premium routes and operator discounts.
-            </p>
-            <div className="space-y-4">
-              <div className="flex justify-between items-end mb-1">
-                <span className="text-sm text-summit-white/40 uppercase tracking-widest font-bold">Staked Amount</span>
-                <span className="text-2xl font-bold">{stakedAmount.toLocaleString()} $TREK</span>
-              </div>
-              <div className="w-full bg-white/10 h-2 rounded-full overflow-hidden">
-                <div 
-                  className="bg-trekker-orange h-full transition-all duration-500" 
-                  style={{ width: `${Math.min(stakedAmount / 50, 100)}%` }} 
-                />
-              </div>
-              <button 
-                onClick={handleStakeMore}
-                className="w-full py-4 bg-trekker-orange text-white rounded-xl font-bold hover:bg-trekker-orange/90 transition-all active:scale-95"
-              >
-                Stake More
-              </button>
-            </div>
-          </div>
-
-          {/* AI Helper */}
-          <div className="glass-card p-8 bg-zinc-50 border-dashed border-2 border-himalayan-blue/10">
-            <h3 className="text-xl font-playfair mb-4 flex items-center justify-between">
-              Summit AI
-              {loadingAi && <div className="w-4 h-4 border-2 border-trekker-orange border-t-transparent rounded-full animate-spin" />}
-            </h3>
-            
-            <div className="bg-white p-4 rounded-xl shadow-sm border border-himalayan-blue/5 mb-4 min-h-[100px] flex items-center justify-center text-center">
-              {loadingAi ? (
-                <p className="text-xs text-himalayan-blue/40 animate-pulse">Consulting Himalayan charts...</p>
-              ) : aiRecommendation ? (
-                <div className="space-y-3 text-left w-full">
-                  <p className="text-[10px] text-himalayan-blue/40 font-bold uppercase tracking-widest leading-none">Next Odyssey</p>
-                  <p className="text-sm font-bold text-trekker-orange">{aiRecommendation.recommendation}</p>
-                  <p className="text-xs text-himalayan-blue/70 italic leading-relaxed">"{aiRecommendation.reasoning}"</p>
-                </div>
-              ) : (
-                <p className="text-sm text-himalayan-blue/70 italic leading-relaxed">
-                  "I'm ready to design your next trek. Click below to begin."
-                </p>
+            <div>
+              <p className="font-bold text-gray-900">{title}</p>
+              <p className="text-sm text-gray-500">{start}{end ? ` → ${end}` : ""}</p>
+              {booking.service?.title && booking.route?.name && (
+                <p className="text-xs text-gray-400">{booking.service.title}</p>
               )}
             </div>
-            
-            <button 
-              onClick={getAiPlan}
-              disabled={loadingAi}
-              className="text-trekker-orange text-sm font-bold flex items-center gap-2 hover:gap-3 transition-all disabled:opacity-50"
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="text-right">
+              <p className="font-bold text-gray-900 text-lg">${Number(booking.total_price_usd).toFixed(2)}</p>
+              <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full border ${cfg.bg} ${cfg.border} ${cfg.color}`}>
+                {cfg.label}
+              </span>
+            </div>
+            <Link
+              href={`/booking/${booking.id}`}
+              className="shrink-0 bg-orange-500 hover:bg-orange-400 text-white text-sm font-bold px-4 py-2 rounded-xl transition-all hover:scale-105 shadow-md shadow-orange-500/20"
             >
-              {aiRecommendation ? "Regenerate Plan" : "Plan My Next Trip"} <ChevronRight className="w-4 h-4" />
-            </button>
+              View →
+            </Link>
           </div>
         </div>
+        {progressPct !== null && (
+          <div className="mt-3 pt-3 border-t border-gray-100">
+            <div className="flex justify-between text-xs text-gray-400 mb-1">
+              <span>Journey in progress</span>
+              <span>{progressPct}% complete</span>
+            </div>
+            <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+              <div className="h-full bg-gradient-to-r from-emerald-400 to-emerald-600 rounded-full transition-all duration-700" style={{ width: `${progressPct}%` }} />
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default function TouristDashboard() {
+  const router = useRouter();
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [loaded, setLoaded] = useState(false);
+  const [authState, setAuthState] = useState<"checking" | "authed" | "unauthed">("checking");
+  const [filter, setFilter] = useState("all");
+  const [greeting, setGreeting] = useState("Welcome back");
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+
+  useEffect(() => {
+    const h = new Date().getHours();
+    if (h < 12) setGreeting("Good morning");
+    else if (h < 17) setGreeting("Good afternoon");
+    else setGreeting("Good evening");
+  }, []);
+
+  useEffect(() => {
+    const load = async () => {
+      const res = await fetch("/api/bookings");
+      const payload = await res.json();
+
+      // 401 = unauthenticated — redirect to login
+      if (res.status === 401) {
+        setAuthState("unauthed");
+        router.push("/login?next=/dashboard");
+        return;
+      }
+
+      // Any other non-ok status
+      if (!res.ok) {
+        setAuthState("authed");
+        setLoaded(true);
+        return;
+      }
+
+      setAuthState("authed");
+      setBookings(payload.bookings ?? []);
+      setUserEmail(payload.user?.email ?? null);
+      setLoaded(true);
+    };
+    void load();
+  }, [router]);
+
+  const totalSpent = useMemo(() => bookings.reduce((a, b) => a + Number(b.total_price_usd || 0), 0), [bookings]);
+  const activeCount = useMemo(() => bookings.filter(b => ["pending", "confirmed", "active"].includes(b.status)).length, [bookings]);
+  const completedCount = useMemo(() => bookings.filter(b => b.status === "completed").length, [bookings]);
+
+  const filtered = bookings.filter(b => {
+    if (filter === "active") return ["confirmed", "active", "pending"].includes(b.status);
+    if (filter === "completed") return b.status === "completed";
+    return true;
+  });
+
+  // Show loading spinner while checking auth
+  if (authState === "checking") {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ background: "linear-gradient(160deg, #fafbff 0%, #fff8f2 50%, #f4fff8 100%)" }}>
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-gray-500 text-sm">Checking your session…</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Redirect is happening
+  if (authState === "unauthed") {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ background: "linear-gradient(160deg, #fafbff 0%, #fff8f2 50%, #f4fff8 100%)" }}>
+        <div className="text-center">
+          <div className="text-5xl mb-4">🔒</div>
+          <p className="text-gray-700 font-semibold text-lg">Please log in to view your dashboard</p>
+          <p className="text-gray-400 text-sm mt-1 mb-6">Redirecting you to login…</p>
+          <Link href="/login?next=/dashboard" className="bg-orange-500 text-white font-bold px-6 py-3 rounded-xl hover:bg-orange-400 transition-colors">
+            Log In Now →
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen pb-16" style={{ background: "linear-gradient(160deg, #fafbff 0%, #fff8f2 50%, #f4fff8 100%)" }}>
+      <div className="pt-28 px-4 max-w-5xl mx-auto">
+
+        {/* Header */}
+        <div className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
+          <div>
+            <p className="text-sm font-semibold text-gray-400 uppercase tracking-widest mb-1">{greeting} 👋</p>
+            <h1 className="text-5xl font-bold text-gray-900" style={{ fontFamily: "Georgia, serif" }}>
+              Trekker <span className="text-orange-500">Dashboard</span>
+            </h1>
+            {userEmail && <p className="text-gray-400 text-sm mt-1">{userEmail}</p>}
+          </div>
+          <Link
+            href="/explore"
+            className="inline-flex items-center gap-2 bg-orange-500 hover:bg-orange-400 text-white font-bold px-6 py-3 rounded-2xl transition-all hover:scale-105 shadow-xl shadow-orange-500/25"
+          >
+            🧭 Explore Routes
+          </Link>
+        </div>
+
+        {/* Stats */}
+        <div className="grid sm:grid-cols-3 gap-5 mb-10">
+          <StatCard icon="🧭" label="Active Bookings" value={loaded ? <AnimatedNumber value={activeCount} /> : "—"} sub="In progress or confirmed" accent="#f97316" />
+          <StatCard icon="💰" label="Total Spent" value={loaded ? `$${totalSpent.toFixed(2)}` : "—"} sub="Across all bookings" accent="#10b981" />
+          <StatCard icon="🏆" label="Completed Treks" value={loaded ? <AnimatedNumber value={completedCount} /> : "—"} sub="NFT proofs eligible" accent="#6366f1" />
+        </div>
+
+        {/* Quick actions */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-10">
+          {[
+            { href: "/explore", icon: "🗺️", label: "Explore" },
+            { href: "/vibe",    icon: "🎖️", label: "My NFTs" },
+            { href: "/dao",     icon: "⚖️", label: "DAO" },
+            { href: "/nft",     icon: "✨", label: "Mint NFT" },
+          ].map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="flex flex-col items-center gap-2 py-4 rounded-2xl border border-gray-100 bg-white/80 hover:bg-white hover:border-orange-200 hover:shadow-lg transition-all duration-200 hover:-translate-y-1"
+            >
+              <span className="text-2xl">{item.icon}</span>
+              <span className="text-xs font-semibold text-gray-600">{item.label}</span>
+            </Link>
+          ))}
+        </div>
+
+        {/* Bookings section */}
+        <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
+          <h2 className="text-2xl font-bold text-gray-900" style={{ fontFamily: "Georgia, serif" }}>My Bookings</h2>
+          <div className="flex gap-2">
+            {["all", "active", "completed"].map((f) => (
+              <button
+                key={f}
+                onClick={() => setFilter(f)}
+                className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-all ${
+                  filter === f
+                    ? "bg-orange-500 text-white shadow-md shadow-orange-500/25 scale-105"
+                    : "bg-white text-gray-500 border border-gray-200 hover:border-orange-300"
+                }`}
+              >
+                {f === "all" ? "All" : f === "active" ? "🚶 Active" : "🏆 Done"}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {!loaded ? (
+          <div className="space-y-3">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="h-20 rounded-2xl bg-white/60 animate-pulse" />
+            ))}
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="text-center py-20 rounded-3xl border-2 border-dashed border-gray-200 bg-white/60">
+            <div className="text-6xl mb-4">🧗</div>
+            <p className="text-gray-500 text-lg font-semibold">No bookings yet</p>
+            <p className="text-gray-400 text-sm mt-1 mb-4">Start exploring Nepal trekking routes!</p>
+            <Link href="/explore" className="inline-block bg-orange-500 text-white font-bold px-6 py-2.5 rounded-xl hover:bg-orange-400 transition-colors">
+              Browse Routes →
+            </Link>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {filtered.map((booking, i) => (
+              <BookingRow key={booking.id} booking={booking} index={i} />
+            ))}
+          </div>
+        )}
+
+        <p className="mt-8 text-center text-xs text-gray-400">
+          ⛓️ Powered by Solana · Tourism Chain Nepal · All bookings recorded on-chain
+        </p>
       </div>
     </div>
   );

@@ -1,6 +1,8 @@
 [workspace]
 members = [
-    "programs/*"
+    "programs/tourchain_reputation",
+    "programs/tourchain_escrow",
+    "programs/tourchain_proof"
 ]
 resolver = "2"
 

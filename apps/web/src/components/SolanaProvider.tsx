@@ -16,17 +16,19 @@ import { clusterApiUrl } from "@solana/web3.js";
 
 import "@solana/wallet-adapter-react-ui/styles.css";
 
-const clusterMap: Record<string, WalletAdapterNetwork> = {
-  mainnet: WalletAdapterNetwork.Mainnet,
-  testnet: WalletAdapterNetwork.Testnet,
-  devnet: WalletAdapterNetwork.Devnet,
-};
-
 export const SolanaProvider = ({ children }: { children: React.ReactNode }) => {
-  const clusterEnv = process.env.NEXT_PUBLIC_SOLANA_CLUSTER ?? "devnet";
-  const network = clusterMap[clusterEnv] ?? WalletAdapterNetwork.Devnet;
-  const endpoint =
-    process.env.NEXT_PUBLIC_SOLANA_RPC ?? clusterApiUrl(network);
+  const cluster = (process.env.NEXT_PUBLIC_SOLANA_CLUSTER ?? "devnet").toLowerCase();
+  const network =
+    cluster === "mainnet-beta"
+      ? WalletAdapterNetwork.Mainnet
+      : cluster === "testnet"
+        ? WalletAdapterNetwork.Testnet
+        : WalletAdapterNetwork.Devnet;
+
+  const endpoint = useMemo(
+    () => process.env.NEXT_PUBLIC_SOLANA_RPC ?? clusterApiUrl(network),
+    [network],
+  );
 
   const wallets = useMemo(
     () => [
@@ -34,7 +36,7 @@ export const SolanaProvider = ({ children }: { children: React.ReactNode }) => {
       new SolflareWalletAdapter(),
       new BackpackWalletAdapter(),
     ],
-    []
+    [],
   );
 
   return (

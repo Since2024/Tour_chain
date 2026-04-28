@@ -1,221 +1,407 @@
 "use client";
 
-import { motion } from "framer-motion";
-import { 
-  Vote, 
-  Users, 
-  History, 
-  AlertTriangle, 
-  PlusCircle, 
-  TrendingUp,
-  ShieldAlert,
-  ChevronRight
-} from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
-const proposals = [
-  {
-    id: 1,
-    title: "Suspend Operator 'Everest Express' for 3 Verified Fraud Reports",
-    category: "Security",
-    proposer: "0x1234...5678",
-    status: "Active",
-    votesFor: 125000,
-    votesAgainst: 12000,
-    deadline: "2 days left",
-  },
-  {
-    id: 2,
-    title: "Allocate 50,000 $TREK from Treasury for Annapurna Clean-up Initiative",
-    category: "Sustainability",
-    proposer: "0x8765...4321",
-    status: "Active",
-    votesFor: 85000,
-    votesAgainst: 45000,
-    deadline: "5 days left",
-  },
-  {
-    id: 3,
-    title: "Increase Operator Stake Requirement to 250 SOL for 'Peak' Status",
-    category: "Governance",
-    proposer: "0x4321...8765",
-    status: "Executed",
-    votesFor: 300000,
-    votesAgainst: 50000,
-    deadline: "Completed",
-  }
+type Dispute = {
+  id: string;
+  category: string;
+  status: string;
+  description: string;
+  created_at: string;
+};
+
+type Vote = { for: number; against: number; abstain: number };
+
+const DEMO_DISPUTES: Dispute[] = [
+  { id: "d1", category: "Service Quality", status: "under_review", description: "Guide arrived 3 hours late at Thorong La checkpoint; tourist requests 40% refund on trek package.", created_at: new Date(Date.now() - 86400000 * 1).toISOString() },
+  { id: "d2", category: "Billing", status: "open", description: "Escrow release mismatch: operator claims full completion but tourist reports 2 checkpoints skipped.", created_at: new Date(Date.now() - 86400000 * 3).toISOString() },
+  { id: "d3", category: "Safety", status: "resolved", description: "Emergency SOS triggered at 5200m; guide provided adequate assistance. Case closed in favor of operator.", created_at: new Date(Date.now() - 86400000 * 8).toISOString() },
+  { id: "d4", category: "NFT Dispute", status: "open", description: "Checkpoint NFT minted incorrectly — wrong metadata URI attached to mint address for Poon Hill summit.", created_at: new Date(Date.now() - 86400000 * 2).toISOString() },
 ];
 
-export default function DAODashboard() {
-  const [activeTab, setActiveTab] = useState("proposals");
+const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; dot: string }> = {
+  open:         { label: "Open",         color: "text-orange-300", bg: "bg-orange-500/20 border-orange-500/30", dot: "bg-orange-400" },
+  under_review: { label: "Under Review", color: "text-blue-300",   bg: "bg-blue-500/20 border-blue-500/30",   dot: "bg-blue-400 animate-pulse" },
+  resolved:     { label: "Resolved",     color: "text-emerald-300", bg: "bg-emerald-500/20 border-emerald-500/30", dot: "bg-emerald-400" },
+  rejected:     { label: "Rejected",     color: "text-red-300",    bg: "bg-red-500/20 border-red-500/30",    dot: "bg-red-400" },
+};
+
+const CATEGORY_ICONS: Record<string, string> = {
+  "Service Quality": "⭐",
+  "Billing": "💰",
+  "Safety": "🚨",
+  "NFT Dispute": "🎖️",
+};
+
+function VoteBar({ votes }: { votes: Vote }) {
+  const total = votes.for + votes.against + votes.abstain || 1;
+  const forPct = Math.round((votes.for / total) * 100);
+  const againstPct = Math.round((votes.against / total) * 100);
+  const abstainPct = 100 - forPct - againstPct;
 
   return (
-    <div className="pt-24 pb-12 px-4 max-w-7xl mx-auto min-h-screen">
-      <header className="mb-12 flex flex-col md:flex-row justify-between items-end gap-6">
-        <div>
-          <motion.div 
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="flex items-center gap-2 mb-2"
-          >
-            <span className="px-3 py-1 bg-himalayan-blue text-summit-white text-[10px] font-bold uppercase tracking-widest rounded-full">
-              Protocol Governance
-            </span>
-          </motion.div>
-          <h1 className="text-5xl font-playfair text-himalayan-blue">Nepal <span className="italic">Trust Layer</span> DAO</h1>
+    <div className="space-y-1.5">
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-white/50 w-14">For</span>
+        <div className="flex-1 h-2 bg-white/10 rounded-full overflow-hidden">
+          <div className="h-full bg-emerald-400 rounded-full transition-all duration-700" style={{ width: `${forPct}%` }} />
         </div>
-        <button className="flex items-center gap-2 px-8 py-4 bg-himalayan-blue text-white rounded-2xl font-bold hover:bg-himalayan-blue/90 transition-all shadow-xl shadow-himalayan-blue/20">
-          <PlusCircle className="w-5 h-5" />
-          Create Proposal
-        </button>
-      </header>
-
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-12">
-        {[
-          { icon: Users, label: "Total Members", value: "12,450", trend: "+12%" },
-          { icon: TrendingUp, label: "$TREK Burnt", value: "850,000", trend: "0.2% total" },
-          { icon: ShieldAlert, label: "Active Disputes", value: "24", trend: "Resolving" },
-          { icon: Vote, label: "Staked Voting Power", value: "4.2M TREK", trend: "Active" }
-        ].map((stat, i) => (
-          <motion.div 
-            key={i}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.1 }}
-            className="glass-card p-6 bg-white"
-          >
-            <stat.icon className="w-8 h-8 text-himalayan-blue/20 mb-4" />
-            <p className="text-xs text-himalayan-blue/40 uppercase font-bold tracking-widest leading-none mb-1">{stat.label}</p>
-            <p className="text-2xl font-bold text-himalayan-blue">{stat.value}</p>
-            <p className="text-[10px] text-forest-green font-bold mt-2">{stat.trend}</p>
-          </motion.div>
-        ))}
+        <span className="text-xs text-emerald-300 w-8 text-right">{forPct}%</span>
       </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-        {/* Main Governance Area */}
-        <div className="lg:col-span-2 space-y-6">
-          <div className="flex gap-4 border-b border-himalayan-blue/5 mb-8 overflow-x-auto pb-2">
-            {["proposals", "members", "treasury", "history"].map(tab => (
-              <button 
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`text-xs font-bold uppercase tracking-widest px-4 py-2 transition-all ${
-                  activeTab === tab ? "text-himalayan-blue border-b-2 border-trekker-orange" : "text-himalayan-blue/20"
-                }`}
-              >
-                {tab}
-              </button>
-            ))}
-          </div>
-
-          <div className="space-y-6">
-            {proposals.map((proposal, idx) => (
-              <motion.div
-                key={proposal.id}
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: idx * 0.1 }}
-                className="glass-card p-8 bg-white hover:border-himalayan-blue/20 transition-all cursor-pointer group"
-              >
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-tighter mb-2 inline-block ${
-                      proposal.status === "Active" ? "bg-forest-green/10 text-forest-green" : "bg-himalayan-blue/10 text-himalayan-blue"
-                    }`}>
-                      {proposal.status}
-                    </span>
-                    <h3 className="text-xl font-playfair group-hover:text-trekker-orange transition-colors">
-                      {proposal.title}
-                    </h3>
-                  </div>
-                  {proposal.status === "Active" && (
-                    <div className="text-right">
-                      <p className="text-[10px] font-bold text-prayer-red uppercase tracking-widest mb-1">{proposal.deadline}</p>
-                      <AlertTriangle className="w-5 h-5 text-prayer-red ml-auto" />
-                    </div>
-                  )}
-                </div>
-
-                <div className="space-y-4 mb-6">
-                  <div className="flex items-center justify-between text-xs font-bold uppercase tracking-widest">
-                    <span className="text-forest-green">For: {proposal.votesFor.toLocaleString()} TREK</span>
-                    <span className="text-prayer-red">Against: {proposal.votesAgainst.toLocaleString()} TREK</span>
-                  </div>
-                  <div className="h-3 w-full bg-zinc-100 rounded-full overflow-hidden flex">
-                    <div 
-                      className="bg-forest-green h-full" 
-                      style={{ width: `${(proposal.votesFor / (proposal.votesFor + proposal.votesAgainst)) * 100}%` }} 
-                    />
-                    <div 
-                      className="bg-prayer-red h-full" 
-                      style={{ width: `${(proposal.votesAgainst / (proposal.votesFor + proposal.votesAgainst)) * 100}%` }} 
-                    />
-                  </div>
-                </div>
-
-                <div className="flex justify-between items-center text-[10px] text-himalayan-blue/40 font-bold uppercase tracking-widest">
-                  <p>Proposed by: {proposal.proposer}</p>
-                  <div className="flex items-center gap-2 group-hover:gap-3 transition-all">
-                    View Details <ChevronRight className="w-4 h-4" />
-                  </div>
-                </div>
-              </motion.div>
-            ))}
-          </div>
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-white/50 w-14">Against</span>
+        <div className="flex-1 h-2 bg-white/10 rounded-full overflow-hidden">
+          <div className="h-full bg-red-400 rounded-full transition-all duration-700" style={{ width: `${againstPct}%` }} />
         </div>
+        <span className="text-xs text-red-300 w-8 text-right">{againstPct}%</span>
+      </div>
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-white/50 w-14">Abstain</span>
+        <div className="flex-1 h-2 bg-white/10 rounded-full overflow-hidden">
+          <div className="h-full bg-gray-400 rounded-full transition-all duration-700" style={{ width: `${abstainPct}%` }} />
+        </div>
+        <span className="text-xs text-gray-400 w-8 text-right">{abstainPct}%</span>
+      </div>
+    </div>
+  );
+}
 
-        {/* Sidebar: Personal Governance Stats */}
-        <div className="lg:col-span-1">
-          <div className="sticky top-24 space-y-8">
-            <div className="glass-card p-8 bg-himalayan-blue text-white shadow-2xl shadow-himalayan-blue/20">
-              <h3 className="text-xl font-playfair mb-6">Your Voting Power</h3>
-              <div className="space-y-6">
-                <div>
-                  <p className="text-[10px] opacity-40 uppercase font-bold tracking-widest mb-1">Available TREK</p>
-                  <p className="text-3xl font-bold">1,250.00</p>
-                </div>
-                <div>
-                  <p className="text-[10px] opacity-40 uppercase font-bold tracking-widest mb-1">Staked (Multiplier 2.5x)</p>
-                  <p className="text-3xl font-bold text-trekker-orange">5,000.00</p>
-                </div>
-                <div className="pt-6 border-t border-white/10">
-                  <div className="flex justify-between text-xs mb-4">
-                    <span className="opacity-40">Proposals Voted</span>
-                    <span className="font-bold">12 / 12</span>
-                  </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="opacity-40">Participation Rate</span>
-                    <span className="font-bold text-forest-green">100%</span>
-                  </div>
-                </div>
-                <button className="w-full py-4 bg-white text-himalayan-blue rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-zinc-100 transition-all">
-                  <Users className="w-4 h-4" /> Delegate Power
-                </button>
-              </div>
+function DisputeCard({ dispute, index }: { dispute: Dispute; index: number }) {
+  const [expanded, setExpanded] = useState(false);
+  const [myVote, setMyVote] = useState<"for" | "against" | "abstain" | null>(null);
+  const [votes, setVotes] = useState<Vote>({
+    for: Math.floor(Math.random() * 80) + 10,
+    against: Math.floor(Math.random() * 50) + 5,
+    abstain: Math.floor(Math.random() * 20) + 2,
+  });
+  const [voting, setVoting] = useState(false);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const t = setTimeout(() => setVisible(true), index * 100);
+    return () => clearTimeout(t);
+  }, [index]);
+
+  const cfg = STATUS_CONFIG[dispute.status] ?? STATUS_CONFIG.open;
+  const icon = CATEGORY_ICONS[dispute.category] ?? "📋";
+  const days = Math.floor((Date.now() - new Date(dispute.created_at).getTime()) / 86400000);
+
+  const castVote = (type: "for" | "against" | "abstain") => {
+    if (myVote || voting) return;
+    setVoting(true);
+    setTimeout(() => {
+      setVotes(v => ({ ...v, [type]: v[type] + 1 }));
+      setMyVote(type);
+      setVoting(false);
+    }, 600);
+  };
+
+  return (
+    <div
+      style={{
+        opacity: visible ? 1 : 0,
+        transform: visible ? "translateX(0)" : "translateX(-24px)",
+        transition: "opacity 0.4s ease, transform 0.4s ease",
+      }}
+    >
+      <div
+        className={`rounded-2xl border transition-all duration-300 overflow-hidden ${
+          expanded ? "border-blue-500/50 shadow-xl shadow-blue-500/10" : "border-white/10 hover:border-white/25"
+        }`}
+        style={{ background: "rgba(255,255,255,0.05)", backdropFilter: "blur(12px)" }}
+      >
+        {/* Card header — always visible */}
+        <button
+          className="w-full text-left p-5 flex items-start gap-4"
+          onClick={() => setExpanded(e => !e)}
+        >
+          <div className="text-3xl mt-0.5 shrink-0">{icon}</div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap mb-2">
+              <span className="text-white/50 text-xs uppercase tracking-widest">{dispute.category}</span>
+              <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-0.5 rounded-full border ${cfg.bg} ${cfg.color}`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
+                {cfg.label}
+              </span>
+              <span className="text-white/30 text-xs ml-auto">{days === 0 ? "Today" : `${days}d ago`}</span>
+            </div>
+            <p className="text-white/85 text-sm leading-snug line-clamp-2">{dispute.description}</p>
+          </div>
+          <span className="text-white/30 text-lg shrink-0 transition-transform duration-300" style={{ transform: expanded ? "rotate(180deg)" : "rotate(0deg)" }}>
+            ⌄
+          </span>
+        </button>
+
+        {/* Expandable body */}
+        <div
+          className="overflow-hidden transition-all duration-500"
+          style={{ maxHeight: expanded ? "400px" : "0px" }}
+        >
+          <div className="px-5 pb-5 space-y-4 border-t border-white/10 pt-4">
+            {/* Full description */}
+            <p className="text-white/70 text-sm leading-relaxed">{dispute.description}</p>
+
+            {/* Vote distribution */}
+            <div>
+              <p className="text-white/40 text-xs uppercase tracking-widest mb-3">Current Votes · {votes.for + votes.against + votes.abstain} total</p>
+              <VoteBar votes={votes} />
             </div>
 
-            <div className="glass-card p-6 bg-zinc-50 border border-himalayan-blue/5">
-              <h4 className="font-bold mb-4 flex items-center gap-2">
-                <History className="w-4 h-4 text-himalayan-blue/40" /> Recent Actions
-              </h4>
-              <div className="space-y-4 text-xs">
-                {[
-                  "You voted YES on Proposal #124",
-                  "Treasure payout of 5,000 TREK executed",
-                  "Operator #98 verified by GPS Consensus",
-                ].map((action, i) => (
-                  <div key={i} className="flex gap-3 py-2 border-b border-himalayan-blue/5 last:border-0 opacity-60">
-                    <div className="w-2 h-2 rounded-full bg-trekker-orange mt-1 shrink-0" />
-                    {action}
+            {/* Vote buttons */}
+            {dispute.status !== "resolved" && (
+              <div>
+                <p className="text-white/40 text-xs uppercase tracking-widest mb-2">Cast Your Vote</p>
+                {myVote ? (
+                  <div className="flex items-center gap-2 text-emerald-400 text-sm font-medium">
+                    <span>✅</span>
+                    <span>You voted <strong className="capitalize">{myVote}</strong>. Vote recorded on-chain.</span>
                   </div>
-                ))}
+                ) : (
+                  <div className="flex gap-2 flex-wrap">
+                    {(["for", "against", "abstain"] as const).map((v) => (
+                      <button
+                        key={v}
+                        disabled={voting}
+                        onClick={() => castVote(v)}
+                        className={`flex-1 min-w-[80px] py-2 rounded-xl text-sm font-bold transition-all duration-200 ${
+                          v === "for"
+                            ? "bg-emerald-500/20 hover:bg-emerald-500 border border-emerald-500/40 text-emerald-300 hover:text-white"
+                            : v === "against"
+                            ? "bg-red-500/20 hover:bg-red-500 border border-red-500/40 text-red-300 hover:text-white"
+                            : "bg-gray-500/20 hover:bg-gray-500 border border-gray-500/40 text-gray-300 hover:text-white"
+                        } ${voting ? "opacity-50 cursor-wait" : "hover:scale-105"}`}
+                      >
+                        {voting ? "…" : v === "for" ? "✅ For" : v === "against" ? "❌ Against" : "⬜ Abstain"}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
-            </div>
+            )}
+
+            {dispute.status === "resolved" && (
+              <div className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-3">
+                <span className="text-emerald-400">✅</span>
+                <span className="text-emerald-300 text-sm">This dispute has been resolved by DAO consensus.</span>
+              </div>
+            )}
           </div>
         </div>
       </div>
     </div>
+  );
+}
+
+function StatCard({ icon, value, label, sublabel }: { icon: string; value: string | number; label: string; sublabel?: string }) {
+  return (
+    <div className="rounded-2xl border border-white/10 p-5 text-center" style={{ background: "rgba(255,255,255,0.07)", backdropFilter: "blur(12px)" }}>
+      <div className="text-3xl mb-2">{icon}</div>
+      <div className="text-3xl font-bold text-white mb-0.5">{value}</div>
+      <div className="text-white/60 text-xs uppercase tracking-wider">{label}</div>
+      {sublabel && <div className="text-white/35 text-xs mt-1">{sublabel}</div>}
+    </div>
+  );
+}
+
+export default function DAODashboard() {
+  const [disputes, setDisputes] = useState<Dispute[]>([]);
+  const [loaded, setLoaded] = useState(false);
+  const [filter, setFilter] = useState("all");
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({ category: "Service Quality", description: "" });
+  const [submitted, setSubmitted] = useState(false);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const response = await fetch("/api/disputes");
+        if (response.ok) {
+          const payload = await response.json();
+          if (payload.disputes?.length) {
+            setDisputes(payload.disputes);
+            setLoaded(true);
+            return;
+          }
+        }
+      } catch {}
+      setDisputes(DEMO_DISPUTES);
+      setLoaded(true);
+    };
+    void load();
+  }, []);
+
+  const filtered = disputes.filter((d) => {
+    if (filter === "open") return d.status === "open";
+    if (filter === "review") return d.status === "under_review";
+    if (filter === "resolved") return d.status === "resolved";
+    return true;
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.description.trim()) return;
+    const newDispute: Dispute = {
+      id: `local-${Date.now()}`,
+      category: form.category,
+      description: form.description,
+      status: "open",
+      created_at: new Date().toISOString(),
+    };
+    setDisputes(prev => [newDispute, ...prev]);
+    setSubmitted(true);
+    setShowForm(false);
+    setForm({ category: "Service Quality", description: "" });
+    setTimeout(() => setSubmitted(false), 3000);
+  };
+
+  const openCount = disputes.filter(d => d.status === "open").length;
+  const reviewCount = disputes.filter(d => d.status === "under_review").length;
+  const resolvedCount = disputes.filter(d => d.status === "resolved").length;
+
+  return (
+    <main className="min-h-screen" style={{ background: "linear-gradient(135deg, #0a0f1e 0%, #1a1040 50%, #0f1a2e 100%)" }}>
+      {/* Background glows */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-0 right-1/3 w-96 h-96 rounded-full blur-3xl opacity-15" style={{ background: "radial-gradient(circle, #7c3aed, transparent)", animation: "float 8s ease-in-out infinite" }} />
+        <div className="absolute bottom-20 left-1/4 w-80 h-80 rounded-full blur-3xl opacity-15" style={{ background: "radial-gradient(circle, #2563eb, transparent)", animation: "float 10s ease-in-out infinite reverse" }} />
+      </div>
+
+      <div className="relative z-10 pt-28 pb-16 px-4 max-w-5xl mx-auto">
+
+        {/* Header */}
+        <div className="text-center mb-12">
+          <div className="inline-flex items-center gap-2 bg-purple-500/10 border border-purple-500/30 rounded-full px-4 py-1.5 text-sm text-purple-300 mb-6">
+            <span className="w-2 h-2 rounded-full bg-purple-400 animate-pulse" />
+            DAO Governance Active
+          </div>
+          <h1 className="text-6xl font-bold text-white mb-4" style={{ fontFamily: "Georgia, serif", textShadow: "0 0 40px rgba(124,58,237,0.4)" }}>
+            ⚖️ Trust DAO
+          </h1>
+          <p className="text-white/60 text-lg max-w-xl mx-auto">
+            Community-governed dispute resolution for the Himalayan tourism ecosystem. Vote on cases, shape fair outcomes.
+          </p>
+        </div>
+
+        {/* Stats row */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
+          <StatCard icon="📋" value={disputes.length} label="Total Cases" />
+          <StatCard icon="🔴" value={openCount} label="Open" sublabel="Needs votes" />
+          <StatCard icon="🔵" value={reviewCount} label="In Review" sublabel="Being assessed" />
+          <StatCard icon="✅" value={resolvedCount} label="Resolved" sublabel="Case closed" />
+        </div>
+
+        {/* Controls */}
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+          <div className="flex gap-2 flex-wrap">
+            {[
+              { key: "all", label: "All" },
+              { key: "open", label: "🔴 Open" },
+              { key: "review", label: "🔵 In Review" },
+              { key: "resolved", label: "✅ Resolved" },
+            ].map((f) => (
+              <button
+                key={f.key}
+                onClick={() => setFilter(f.key)}
+                className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-all duration-300 ${
+                  filter === f.key
+                    ? "bg-purple-500 text-white shadow-lg shadow-purple-500/30 scale-105"
+                    : "bg-white/10 text-white/60 hover:bg-white/20 hover:text-white"
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={() => setShowForm(f => !f)}
+            className="flex items-center gap-2 bg-purple-600 hover:bg-purple-500 text-white text-sm font-bold px-5 py-2 rounded-full transition-all hover:scale-105 shadow-lg shadow-purple-500/30"
+          >
+            {showForm ? "✕ Cancel" : "+ File a Dispute"}
+          </button>
+        </div>
+
+        {/* Success toast */}
+        {submitted && (
+          <div className="mb-4 flex items-center gap-3 bg-emerald-500/20 border border-emerald-500/30 rounded-2xl px-5 py-3">
+            <span className="text-2xl">✅</span>
+            <div>
+              <p className="text-emerald-300 font-semibold text-sm">Dispute submitted!</p>
+              <p className="text-emerald-300/60 text-xs">Your case has been added to the DAO queue.</p>
+            </div>
+          </div>
+        )}
+
+        {/* Submit form */}
+        {showForm && (
+          <form
+            onSubmit={handleSubmit}
+            className="mb-6 rounded-2xl border border-purple-500/30 p-6 space-y-4"
+            style={{ background: "rgba(124,58,237,0.08)", backdropFilter: "blur(12px)" }}
+          >
+            <h2 className="text-white font-bold text-lg">📝 File a New Dispute</h2>
+            <div>
+              <label className="text-white/50 text-xs uppercase tracking-wider block mb-1">Category</label>
+              <select
+                value={form.category}
+                onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
+                className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-purple-400"
+              >
+                {["Service Quality", "Billing", "Safety", "NFT Dispute", "Other"].map(c => (
+                  <option key={c} value={c} className="bg-gray-900">{c}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-white/50 text-xs uppercase tracking-wider block mb-1">Description</label>
+              <textarea
+                value={form.description}
+                onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+                rows={3}
+                placeholder="Describe the issue in detail..."
+                className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-2.5 text-white text-sm placeholder-white/25 focus:outline-none focus:border-purple-400 resize-none"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={!form.description.trim()}
+              className="w-full bg-purple-600 hover:bg-purple-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold py-3 rounded-xl transition-all"
+            >
+              Submit to DAO →
+            </button>
+          </form>
+        )}
+
+        {/* Disputes list */}
+        {!loaded ? (
+          <div className="space-y-3">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="h-24 rounded-2xl bg-white/5 animate-pulse" />
+            ))}
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="text-center py-20">
+            <div className="text-6xl mb-4">⚖️</div>
+            <p className="text-white/50 text-lg">No disputes found for this filter.</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {filtered.map((dispute, i) => (
+              <DisputeCard key={dispute.id} dispute={dispute} index={i} />
+            ))}
+          </div>
+        )}
+
+        <p className="text-center text-white/25 text-xs mt-12">
+          TrustDAO · Governance powered by community consensus · Tourism Chain Nepal
+        </p>
+      </div>
+
+      <style jsx>{`
+        @keyframes float {
+          0%, 100% { transform: translateY(0px); }
+          50% { transform: translateY(-20px); }
+        }
+      `}</style>
+    </main>
   );
 }

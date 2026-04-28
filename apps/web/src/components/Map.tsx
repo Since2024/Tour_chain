@@ -1,113 +1,65 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from 'react';
-import mapboxgl from 'mapbox-gl';
-import 'mapbox-gl/dist/mapbox-gl.css';
+import React from "react";
+import { MapContainer, Marker, Popup, TileLayer } from "react-leaflet";
+import L, { LatLngExpression } from "leaflet";
+import "leaflet/dist/leaflet.css";
 
-mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? '';
+type MapPoint = {
+  id: string;
+  name: string;
+  lng: number;
+  lat: number;
+  description?: string;
+};
 
 interface MapProps {
   center?: [number, number];
   zoom?: number;
+  points?: MapPoint[];
 }
 
-const InteractiveMap: React.FC<MapProps> = ({ 
+const InteractiveMap: React.FC<MapProps> = ({
   center = [84.1240, 28.3949], // Nepal center
-  zoom = 7 
+  zoom = 7,
+  points = [],
 }) => {
-  const mapContainer = useRef<HTMLDivElement>(null);
-  const map = useRef<mapboxgl.Map | null>(null);
-  const [lastEvent, setLastEvent] = useState<string | null>(null);
+  L.Icon.Default.mergeOptions({
+    iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
+    iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
+    shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+  });
 
-  useEffect(() => {
-    if (map.current || !mapContainer.current) return;
-
-    map.current = new mapboxgl.Map({
-      container: mapContainer.current,
-      style: 'mapbox://styles/mapbox/dark-v11',
-      center: center,
-      zoom: zoom,
-      pitch: 45,
-      bearing: -17.6,
-      antialias: true
-    });
-
-    map.current.addControl(new mapboxgl.NavigationControl());
-
-    const simulatedEvents = [
-      { name: 'Namche Bazaar', coords: [86.7140, 27.806], msg: '3 trekkers just minted a checkpoint NFT' },
-      { name: 'Everest Base Camp', coords: [86.852, 28.004], msg: 'New "Summit" badge minted by 0x56a3' },
-      { name: 'Annapurna Base Camp', coords: [83.878, 28.530], msg: 'Checkpoint NFT verified via GPS' },
-      { name: 'Manang', coords: [84.027, 28.665], msg: 'Milestone 2 released to Teahouse #12' }
-    ];
-
-    let eventIdx = 0;
-    const interval = setInterval(() => {
-      if (!map.current) return;
-      
-      const event = simulatedEvents[eventIdx % simulatedEvents.length];
-      setLastEvent(event.msg + " at " + event.name);
-      
-      // Add a ripple marker
-      const el = document.createElement('div');
-      el.className = 'w-4 h-4 bg-trekker-orange rounded-full shadow-lg pulse-marker animate-ping';
-      
-      new mapboxgl.Marker(el)
-        .setLngLat(event.coords as [number, number])
-        .setPopup(new mapboxgl.Popup({ offset: 25 }).setHTML(`<h3>${event.name}</h3><p>${event.msg}</p>`))
-        .addTo(map.current);
-        
-      eventIdx++;
-    }, 4000);
-
-    // Add 3D terrain
-    map.current.on('load', () => {
-      if (!map.current) return;
-
-      map.current.addSource('mapbox-dem', {
-        'type': 'raster-dem',
-        'url': 'mapbox://mapbox.mapbox-terrain-dem-v1',
-        'tileSize': 512,
-        'maxzoom': 14
-      });
-      
-      map.current.setTerrain({ 'source': 'mapbox-dem', 'exaggeration': 1.5 });
-
-      // Add a glow layer for the sky
-      map.current.addLayer({
-        'id': 'sky',
-        'type': 'sky',
-        'paint': {
-          'sky-type': 'atmosphere',
-          'sky-atmosphere-sun': [0.0, 0.0],
-          'sky-atmosphere-sun-intensity': 15
-        }
-      });
-    });
-
-    return () => {
-      map.current?.remove();
-      clearInterval(interval);
-    };
-  }, [center, zoom]);
+  const mapCenter: LatLngExpression = [center[1], center[0]];
 
   return (
     <div className="relative w-full h-[600px] rounded-3xl overflow-hidden glass-card shadow-2xl">
-      <div ref={mapContainer} className="absolute inset-0" />
-      <div className="absolute top-4 left-4 z-10 glass-morphism p-4 rounded-xl text-white">
-        <h3 className="text-lg font-bold">TourismChain Live Map</h3>
-        <p className="text-xs opacity-70">Real-time trekking activity in Nepal</p>
+      <MapContainer
+        center={mapCenter}
+        zoom={zoom}
+        scrollWheelZoom={true}
+        className="absolute inset-0 z-0"
+        style={{ height: "100%", width: "100%" }}
+      >
+        <TileLayer
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        />
+        {points.map((point) => (
+          <Marker key={point.id} position={[point.lat, point.lng] as LatLngExpression}>
+            <Popup>
+              <strong>{point.name}</strong>
+              {point.description ? <p>{point.description}</p> : null}
+            </Popup>
+          </Marker>
+        ))}
+      </MapContainer>
+      <div className="absolute top-4 left-4 z-10 glass-morphism p-4 rounded-xl text-white pointer-events-none">
+        <h3 className="text-lg font-bold">TourChain Route Map</h3>
+        <p className="text-xs opacity-70">OpenStreetMap (free) + live Supabase places</p>
       </div>
-      
-      {lastEvent && (
-        <div key={lastEvent} className="absolute bottom-4 left-4 right-4 z-10 glass-morphism p-3 rounded-xl border-l-4 border-trekker-orange animate-reveal">
-          <p className="text-[10px] text-white/40 uppercase font-bold tracking-widest mb-1">Live On-Chain Event</p>
-          <p className="text-xs text-white font-bold">{lastEvent}</p>
-        </div>
-      )}
-
-      <div className="absolute top-4 right-4 z-10 bg-trekker-orange p-3 rounded-full shadow-lg pulse">
-        <span className="block w-3 h-3 bg-white rounded-full"></span>
+      <div className="absolute top-4 right-4 z-10 bg-trekker-orange p-3 rounded-full shadow-lg">
+        <span className="block w-3 h-3 bg-white rounded-full" />
       </div>
     </div>
   );
