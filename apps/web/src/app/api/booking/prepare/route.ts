@@ -1,6 +1,10 @@
-import { NextRequest, NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { PublicKey } from "@solana/web3.js";
+import { env } from "@/lib/env";
+import { handle, rateLimit } from "@/lib/api/handle";
+import { jsonError, jsonOk } from "@/lib/api/response";
+import { BookingPrepareInput } from "@/lib/validation/schemas";
+import idl from "@/lib/solana/idl/tourchain_escrow.json";
 
 function getEscrowPda(
   tourist: PublicKey,
@@ -8,8 +12,7 @@ function getEscrowPda(
   createdAt: number
 ): PublicKey {
   const ESCROW_PROGRAM_ID = new PublicKey(
-    process.env.NEXT_PUBLIC_ESCROW_PROGRAM_ID ??
-      "B1M6gHx7W2tKPWwEEuKaumyk2H8zdETZGoBCDt9yamrt"
+    env.NEXT_PUBLIC_ESCROW_PROGRAM_ID ?? idl.address
   );
   const buf = Buffer.alloc(8);
   buf.writeBigInt64LE(BigInt(createdAt));
@@ -20,17 +23,14 @@ function getEscrowPda(
   return pda;
 }
 
-export async function POST(req: NextRequest) {
+export const POST = handle(BookingPrepareInput, async (body, req) => {
   const supabase = await createClient();
-  if (!supabase) return NextResponse.json({ error: "Service unavailable" }, { status: 503 });
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) return jsonError(401, "unauthorized", "Unauthorized");
 
-  const body = await req.json();
-  const { service_id, milestones } = body;
-
-  if (typeof service_id !== "string") {
-    return NextResponse.json({ error: "service_id required" }, { status: 400 });
+  // 20 requests/min per user
+  if (!rateLimit(`booking-prepare:${user.id}`, 20, 60_000)) {
+    return jsonError(429, "rate_limited", "Too many requests — try again in a minute");
   }
 
   const service = createServiceClient();
@@ -38,12 +38,10 @@ export async function POST(req: NextRequest) {
   const { data: svc } = await service
     .from("services")
     .select("id, price_usd, guide_id, guides(user_id, users(wallet_address))")
-    .eq("id", service_id)
+    .eq("id", body.service_id)
     .single();
 
-  if (!svc) {
-    return NextResponse.json({ error: "Service not found" }, { status: 404 });
-  }
+  if (!svc) return jsonError(404, "not_found", "Service not found");
 
   const { data: tourist } = await service
     .from("users")
@@ -52,19 +50,13 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (!tourist?.wallet_address) {
-    return NextResponse.json(
-      { error: "Link a Solana wallet before booking" },
-      { status: 400 }
-    );
+    return jsonError(400, "no_wallet", "Link a Solana wallet before booking");
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const guideUser = (svc as any).guides?.users;
   if (!guideUser?.wallet_address) {
-    return NextResponse.json(
-      { error: "Guide has no linked wallet" },
-      { status: 400 }
-    );
+    return jsonError(400, "guide_no_wallet", "Guide has no linked wallet");
   }
 
   const createdAt = Math.floor(Date.now() / 1000);
@@ -72,17 +64,13 @@ export async function POST(req: NextRequest) {
   const guidePk = new PublicKey(guideUser.wallet_address);
   const escrowPda = getEscrowPda(touristPk, guidePk, createdAt);
 
-  const adminAddress =
-    process.env.NEXT_PUBLIC_ADMIN_PUBKEY ??
-    "11111111111111111111111111111111";
-
-  return NextResponse.json({
+  return jsonOk({
     escrowPda: escrowPda.toBase58(),
     touristWallet: tourist.wallet_address,
     guideWallet: guideUser.wallet_address,
-    adminWallet: adminAddress,
+    adminWallet: env.NEXT_PUBLIC_ADMIN_PUBKEY ?? "11111111111111111111111111111111",
     amountLamports: Math.round(Number(svc.price_usd) * 1_000_000),
-    milestones: milestones ?? 1,
+    milestones: body.milestones ?? 1,
     createdAt,
   });
-}
+});

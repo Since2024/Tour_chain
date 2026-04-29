@@ -11,12 +11,6 @@ type Proof = {
   route?: { name?: string } | null;
 };
 
-const DEMO_PROOFS: Proof[] = [
-  { id: "d1", booking_id: "b1", nft_mint_address: "9wQ3rF...dM1", metadata_uri: "ipfs://QmX9...proof1", created_at: new Date(Date.now() - 86400000 * 2).toISOString(), route: { name: "Poon Hill Trek" } },
-  { id: "d2", booking_id: "b2", nft_mint_address: "GsM7tK...dM2", metadata_uri: "ipfs://QmY2...proof2", created_at: new Date(Date.now() - 86400000 * 5).toISOString(), route: { name: "Annapurna Circuit" } },
-  { id: "d3", booking_id: "b3", nft_mint_address: "HrP4nQ...dM3", metadata_uri: "ipfs://QmZ8...proof3", created_at: new Date(Date.now() - 86400000 * 9).toISOString(), route: { name: "Everest Base Camp" } },
-  { id: "d4", booking_id: "b4", nft_mint_address: "KwL6mS...dM4", metadata_uri: "ipfs://QmW5...proof4", created_at: new Date(Date.now() - 86400000 * 14).toISOString(), route: { name: "Langtang Valley" } },
-];
 
 const EMOJIS = ["🏔️", "⛰️", "🌄", "🗺️", "🧗", "🏕️"];
 const COLORS = [
@@ -163,13 +157,11 @@ export default function VibePage() {
       try {
         const res = await fetch("/api/proofs");
         const payload = await res.json();
-        if (res.ok && payload.proofs?.length) {
-          setProofs(payload.proofs);
-        } else {
-          setProofs(DEMO_PROOFS);
+        if (res.ok) {
+          setProofs(payload.proofs ?? []);
         }
       } catch {
-        setProofs(DEMO_PROOFS);
+        // leave proofs empty — empty state shown below
       }
       setLoaded(true);
     };

@@ -1,20 +1,15 @@
+import { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { withErrors } from "@/lib/api/handle";
 import { jsonError, jsonOk } from "@/lib/api/response";
 
 type IdName = { id: string; name?: string };
 
-export async function GET() {
+export const GET = withErrors(async (_req: NextRequest) => {
   const supabase = await createClient();
-  if (!supabase) {
-    return jsonOk({ proofs: [] });
-  }
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return jsonOk({ proofs: [] });
-  }
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return jsonOk({ proofs: [] });
 
   const { data, error } = await supabase
     .from("completion_proofs")
@@ -48,4 +43,4 @@ export async function GET() {
       route: p.route_id ? { name: routeById.get(p.route_id)?.name } : null,
     })),
   });
-}
+});

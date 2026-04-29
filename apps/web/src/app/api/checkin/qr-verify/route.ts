@@ -1,27 +1,16 @@
-import { NextRequest, NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { handle } from "@/lib/api/handle";
+import { jsonError, jsonOk } from "@/lib/api/response";
+import { QrVerifyInput } from "@/lib/validation/schemas";
 import { verifyToken } from "@/lib/qr";
 
-export async function POST(req: NextRequest) {
+export const POST = handle(QrVerifyInput, async (body) => {
   const supabase = await createClient();
-  if (!supabase) return NextResponse.json({ error: "Service unavailable" }, { status: 503 });
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) return jsonError(401, "unauthorized", "Unauthorized");
 
-  const body = await req.json();
-  const { token, booking_id, place_id } = body;
-
-  if (
-    typeof token !== "string" ||
-    typeof booking_id !== "string" ||
-    typeof place_id !== "string"
-  ) {
-    return NextResponse.json({ error: "Invalid input" }, { status: 400 });
-  }
-
-  const isValid = verifyToken(token, place_id);
-  if (!isValid) {
-    return NextResponse.json({ error: "Invalid or expired QR token" }, { status: 400 });
+  if (!verifyToken(body.token, body.place_id)) {
+    return jsonError(400, "invalid_token", "Invalid or expired QR token");
   }
 
   const service = createServiceClient();
@@ -29,28 +18,26 @@ export async function POST(req: NextRequest) {
   const { data: booking } = await service
     .from("bookings")
     .select("id, tourist_id, status")
-    .eq("id", booking_id)
+    .eq("id", body.booking_id)
     .single();
 
   if (!booking || booking.tourist_id !== user.id) {
-    return NextResponse.json({ error: "Booking not found" }, { status: 404 });
+    return jsonError(404, "not_found", "Booking not found");
   }
 
   const { data: checkin, error } = await service
     .from("check_ins")
     .insert({
-      booking_id,
+      booking_id: body.booking_id,
       user_id: user.id,
-      place_id,
+      place_id: body.place_id,
       method: "qr",
       verified: true,
     })
     .select()
     .single();
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
+  if (error) return jsonError(500, "db_error", error.message);
 
-  return NextResponse.json({ checkin });
-}
+  return jsonOk({ checkin });
+});

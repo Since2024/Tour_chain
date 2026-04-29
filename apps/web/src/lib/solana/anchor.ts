@@ -2,9 +2,10 @@ import { AnchorProvider, Program } from "@coral-xyz/anchor";
 import type { Idl } from "@coral-xyz/anchor";
 import { Connection } from "@solana/web3.js";
 import type { AnchorWallet } from "@solana/wallet-adapter-react";
+import { publicEnv } from "@/lib/env";
 
 export function getProvider(wallet: AnchorWallet): AnchorProvider {
-  const endpoint = process.env.NEXT_PUBLIC_SOLANA_RPC ?? "https://api.devnet.solana.com";
+  const endpoint = publicEnv.NEXT_PUBLIC_SOLANA_RPC;
   const connection = new Connection(endpoint, "confirmed");
   return new AnchorProvider(connection, wallet, { commitment: "confirmed" });
 }

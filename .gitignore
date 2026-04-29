@@ -1,28 +1,19 @@
-# Node / Dependencies
-**/node_modules
-**/dist
-**/build
-**/package-lock.json
+# Rust / Anchor build output
+target/
+.anchor/
 
-# Environment / Secrets
-**/.env
-**/.env.*
-**/id.json
-**/*.key
-**/*.pem
+# Solana keypairs — never commit private keys
+*.keypair.json
+id.json
 
-# Solana / Anchor
-**/target
-**/*.so
-**/.anchor
-**/deploy/*.json
+# Env files
+.env
+.env.local
+.env.*.local
 
-# IDE / System
-**/.vscode
-**/.idea
-**/.DS_Store
-**/npm-debug.log*
-**/yarn-debug.log*
-**/yarn-error.log*
+# Node
+node_modules/
+dist/
 
-.vercel
+# OS
+.DS_Store

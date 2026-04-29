@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { publicEnv } from "@/lib/env";
 
 const AUTH_PREFIXES = ["/dashboard", "/book", "/trek", "/profile"];
 const ADMIN_PREFIX = "/admin";
@@ -10,24 +11,10 @@ function isProtected(pathname: string) {
 
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  // Allow the app to boot even before Supabase env is configured.
-  // Protected routes are still redirected to login to avoid exposing gated pages.
-  if (!supabaseUrl || !supabaseAnonKey) {
-    const pathname = request.nextUrl.pathname;
-    if (isProtected(pathname)) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/login";
-      return NextResponse.redirect(url);
-    }
-    return response;
-  }
 
   const supabase = createServerClient(
-    supabaseUrl,
-    supabaseAnonKey,
+    publicEnv.NEXT_PUBLIC_SUPABASE_URL,
+    publicEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     {
       cookies: {
         getAll() {

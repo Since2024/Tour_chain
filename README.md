@@ -217,34 +217,36 @@ Tour_chain/
 
 ### Prerequisites
 
-- [Rust](https://rustup.rs/) `1.89+`
-- [Solana CLI](https://docs.solana.com/cli/install-solana-cli-tools) `1.18+`
-- [Anchor CLI](https://www.anchor-lang.com/docs/installation) `0.32+`
-- [Node.js](https://nodejs.org/) `18+`
-- [Yarn](https://yarnpkg.com/) `1.22+`
-- A [Supabase](https://supabase.com/) project
-- A [Phantom](https://phantom.app/) wallet funded with devnet SOL
+- [Rust stable](https://rustup.rs/) (`rustup default stable`)
+- [Solana CLI](https://docs.anza.xyz/cli/install) (`solana-install init stable`)
+- [Anchor CLI](https://www.anchor-lang.com/docs/installation) `1.0+`
+- [Node.js](https://nodejs.org/) `20+`
+- A [Supabase](https://supabase.com/) project (or `supabase start` for local dev)
+- A Phantom / Solflare wallet funded with devnet SOL
 
 ### 1. Clone and Install
 
 ```bash
 git clone https://github.com/Since2024/Tour_chain.git
 cd Tour_chain
-yarn install
+cd apps/web && npm install
 ```
 
 ### 2. Configure Environment
 
 ```bash
-cp apps/web/.env.local.example apps/web/.env.local
+cp apps/web/.env.example apps/web/.env.local
+# Fill in SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY,
+# NEXT_PUBLIC_ADMIN_PUBKEY, and optionally NEXT_PUBLIC_MAPBOX_TOKEN.
 ```
-
-Fill in the required values — see [Environment Variables](#environment-variables).
 
 ### 3. Deploy Supabase Schema
 
 ```bash
-supabase db push
+supabase db push          # hosted project
+# — or —
+supabase start            # local dev (Docker)
+supabase db reset         # apply migrations + seed
 ```
 
 This runs all migrations in `supabase/migrations/` — tables, RLS policies, and seed data (5 routes, 15 checkpoint places, 3 verified guides, 10 quests).
@@ -253,24 +255,43 @@ This runs all migrations in `supabase/migrations/` — tables, RLS policies, and
 
 ```bash
 anchor build
+# Copies IDLs to apps/web/src/lib/solana/idl/
+npm run copy:idl --prefix apps/web
 ```
 
-IDL artifacts will be generated at `target/idl/`.
+### 5. Run Tests
 
-### 5. Deploy to Devnet
+```bash
+# Rust / Anchor (litesvm, in-process — no validator needed)
+cargo test -p tourchain_reputation
+cargo test -p tourchain_escrow
+cargo test -p tourchain_proof
+
+# Frontend (Vitest)
+cd apps/web && npm test
+```
+
+### 6. Deploy to Devnet
 
 ```bash
 solana config set --url devnet
 anchor deploy
 ```
 
-Update `Anchor.toml` with the new program IDs, then rebuild.
+Update `Anchor.toml` with the new program IDs, then rebuild and re-copy IDLs.
 
-### 6. Start the Frontend
+### 7. Seed Devnet
 
 ```bash
 cd apps/web
-yarn dev
+npx tsx scripts/apply-seed.ts   # upserts demo places, routes, guides into Supabase
+```
+
+### 8. Start the Frontend
+
+```bash
+cd apps/web
+npm run dev
 # App running at http://localhost:3000
 ```
 
@@ -364,25 +385,28 @@ A materialized view computes the leaderboard from XP, completions, and unique pl
 
 ### MVP (Days 1–7) — It works, it's real
 
-- [ ] Supabase schema deployed with seed data
-- [ ] Supabase Auth (email signup + wallet connect)
-- [ ] Frontend: home page, quest browser, guide profiles, booking flow
-- [ ] `tourchain_reputation` deployed to devnet
-- [ ] GPS proximity check-in flow
-- [ ] Booking creates Supabase record + SOL escrow stub on devnet
-- [ ] Guide dashboard: view bookings, confirm completions
-- [ ] Review submission → on-chain reputation update
-- [ ] Mobile-responsive
+- [x] Supabase schema deployed with seed data
+- [x] Supabase Auth (email signup + wallet connect)
+- [x] Frontend: home page, quest browser, guide profiles, booking flow
+- [x] `tourchain_reputation` deployed to devnet
+- [x] GPS proximity check-in flow (server-side Haversine, 500 m gate)
+- [x] Booking creates Supabase record + SOL escrow on devnet
+- [x] Guide dashboard: view bookings, confirm completions
+- [x] Review submission → on-chain reputation update
+- [x] Mobile-responsive
 
 ### V1 (Days 8–11) — It's impressive
 
-- [ ] `tourchain_escrow` with real SOL milestone release
-- [ ] `tourchain_proof` with Bubblegum cNFT minting
-- [ ] Admin panel: guide verification, dispute review
-- [ ] Leaderboard (materialized view + frontend)
-- [ ] QR code check-in at partner locations
-- [ ] Quest system with story text and XP rewards
-- [ ] Polish: animations, loading states, error handling
+- [x] `tourchain_escrow` with real SOL milestone release
+- [x] `tourchain_proof` with Bubblegum cNFT minting
+- [x] Admin panel: guide verification, dispute review
+- [x] Leaderboard (materialized view + frontend)
+- [x] QR code check-in at partner locations
+- [x] Quest system with story text and XP rewards
+- [x] Polish: animations, loading states, error handling
+- [x] Anchor litesvm tests (23 tests, all passing)
+- [x] Vitest frontend tests
+- [x] CI/CD via GitHub Actions
 
 ### V2 (Post-hackathon) — It's a company
 
