@@ -228,7 +228,7 @@ export default function ExplorePage() {
 
         <div className="flex gap-3 text-sm text-gray-500 mb-6">
           <span>{filtered.length} routes found</span>
-          {searchTerm && <span>· matching "<strong className="text-orange-500">{searchTerm}</strong>"</span>}
+          {searchTerm && <span>· matching &quot;<strong className="text-orange-500">{searchTerm}</strong>&quot;</span>}
         </div>
       </div>
 
