@@ -1,11 +1,10 @@
+import { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { withErrors } from "@/lib/api/handle";
 import { jsonError, jsonOk } from "@/lib/api/response";
 
-export async function GET() {
+export const GET = withErrors(async (_req: NextRequest) => {
   const supabase = await createClient();
-  if (!supabase) {
-    return jsonOk({ places: [] });
-  }
 
   const full = supabase.from("places").select("id,name,description,latitude,longitude");
   const alt = supabase.from("places").select("id,name,description,lat,lng");
@@ -32,4 +31,4 @@ export async function GET() {
   }
 
   return jsonOk({ places: data ?? [] });
-}
+});

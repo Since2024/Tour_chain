@@ -1,19 +1,10 @@
+import { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { withErrors } from "@/lib/api/handle";
 import { jsonError, jsonOk } from "@/lib/api/response";
 
-export async function GET() {
+export const GET = withErrors(async (_req: NextRequest) => {
   const supabase = await createClient();
-  if (!supabase) {
-    return jsonOk(
-      {
-        routes: [
-          { id: "local-1", name: "Poon Hill Sunrise Trek", region: "Annapurna", difficulty: "easy", duration_days: 4, image_url: null },
-          { id: "local-2", name: "Langtang Valley", region: "Langtang", difficulty: "moderate", duration_days: 8, image_url: null },
-        ],
-      },
-      { status: 200 },
-    );
-  }
 
   const full = supabase.from("routes").select("id,name,region,difficulty,duration_days,image_url,max_altitude_meters");
   const minimal = supabase.from("routes").select("id,name,region,difficulty,duration_days");
@@ -45,4 +36,4 @@ export async function GET() {
   }
 
   return jsonOk({ routes: routes ?? [] });
-}
+});

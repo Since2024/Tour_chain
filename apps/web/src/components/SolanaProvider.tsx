@@ -14,9 +14,10 @@ import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
 import { clusterApiUrl } from "@solana/web3.js";
 
 import "@solana/wallet-adapter-react-ui/styles.css";
+import { publicEnv } from "@/lib/env";
 
 export const SolanaProvider = ({ children }: { children: React.ReactNode }) => {
-  const cluster = (process.env.NEXT_PUBLIC_SOLANA_CLUSTER ?? "devnet").toLowerCase();
+  const cluster = (publicEnv.NEXT_PUBLIC_SOLANA_CLUSTER ?? "devnet").toLowerCase();
   const network =
     cluster === "mainnet-beta"
       ? WalletAdapterNetwork.Mainnet
@@ -25,7 +26,7 @@ export const SolanaProvider = ({ children }: { children: React.ReactNode }) => {
         : WalletAdapterNetwork.Devnet;
 
   const endpoint = useMemo(
-    () => process.env.NEXT_PUBLIC_SOLANA_RPC ?? clusterApiUrl(network),
+    () => publicEnv.NEXT_PUBLIC_SOLANA_RPC || clusterApiUrl(network),
     [network],
   );
 

@@ -4,7 +4,6 @@ import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useMemo, useState, useRef } from "react";
 import dynamic from "next/dynamic";
-import { DEMO_PLACES, DEMO_ROUTES } from "@/lib/demo/catalog";
 
 const InteractiveMap = dynamic(() => import("@/components/Map"), { ssr: false });
 
@@ -131,14 +130,10 @@ export default function ExplorePage() {
         fetch("/api/places").catch(() => null),
       ]);
       const routesJson = await routesRes.json();
-      const dbRoutes = (routesJson.routes ?? []) as RouteItem[];
-      setRoutes(dbRoutes.length >= 3 ? dbRoutes : [...dbRoutes, ...DEMO_ROUTES].slice(0, 12));
+      setRoutes((routesJson.routes ?? []) as RouteItem[]);
       if (placesRes?.ok) {
         const placesJson = await placesRes.json();
-        const dbPlaces = (placesJson.places ?? []) as PlaceItem[];
-        setPlaces(dbPlaces.length >= 3 ? dbPlaces : [...dbPlaces, ...DEMO_PLACES].slice(0, 30));
-      } else {
-        setPlaces(DEMO_PLACES);
+        setPlaces((placesJson.places ?? []) as PlaceItem[]);
       }
       setLoading(false);
     };

@@ -122,9 +122,9 @@ export default function Home() {
           </div>
           <div className="glass-card p-12 shadow-xl shadow-himalayan-blue/5">
             <Award className="w-12 h-12 text-trekker-orange mx-auto mb-6" />
-            <h3 className="text-2xl font-playfair mb-4">$TREK Loyalty</h3>
+            <h3 className="text-2xl font-playfair mb-4">XP &amp; Leaderboard</h3>
             <p className="text-himalayan-blue/70">
-              Earn ecosystem tokens for every km trekked. Stake for discounts or vote on DAO governance.
+              Earn XP at every checkpoint and climb the global leaderboard. Your rank is real — backed by on-chain proof.
             </p>
           </div>
         </div>

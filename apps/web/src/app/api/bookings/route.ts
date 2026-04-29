@@ -1,5 +1,7 @@
+import { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { withErrors } from "@/lib/api/handle";
 import { jsonError, jsonOk } from "@/lib/api/response";
 import { BookingCreateInput } from "@/lib/validation/schemas";
 
@@ -33,18 +35,11 @@ type BookingRowSol = {
   service_id: string;
 };
 
-export async function GET() {
+export const GET = withErrors(async (_req: NextRequest) => {
   const supabase = await createClient();
-  if (!supabase) {
-    return jsonError(401, "unauthorized", "Supabase is not configured");
-  }
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return jsonError(401, "unauthorized", "You must be logged in to view bookings");
-  }
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return jsonError(401, "unauthorized", "You must be logged in to view bookings");
 
   const { data: profile } = await supabase.from("users").select("role").eq("id", user.id).maybeSingle();
 
@@ -198,13 +193,10 @@ export async function GET() {
   }));
 
   return jsonOk({ bookings: hydrated });
-}
+});
 
-export async function POST(request: Request) {
+export const POST = withErrors(async (request: NextRequest) => {
   const supabase = await createClient();
-  if (!supabase) {
-    return jsonError(500, "missing_env", "Supabase env is not configured");
-  }
 
   const parsed = BookingCreateInput.safeParse(await request.json());
   if (!parsed.success) {
@@ -379,4 +371,4 @@ export async function POST(request: Request) {
     },
     { status: 201 },
   );
-}
+});

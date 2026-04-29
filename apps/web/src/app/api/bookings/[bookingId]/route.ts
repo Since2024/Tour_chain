@@ -1,4 +1,6 @@
+import { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { withErrors } from "@/lib/api/handle";
 import { jsonError, jsonOk } from "@/lib/api/response";
 import { BookingStatusUpdateInput } from "@/lib/validation/schemas";
 
@@ -19,19 +21,12 @@ type BookingRowUsd = {
 
 type BookingRowAlt = Omit<BookingRowUsd, "total_price_usd"> & { total_price: number };
 
-export async function GET(_request: Request, context: Context) {
+export const GET = withErrors(async (_req: NextRequest, context: Context) => {
   const { bookingId } = await context.params;
   const supabase = await createClient();
-  if (!supabase) {
-    return jsonError(500, "missing_env", "Supabase env is not configured");
-  }
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return jsonError(401, "unauthorized", "Unauthorized");
-  }
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return jsonError(401, "unauthorized", "Unauthorized");
 
   let { data: booking, error: bookingError } = await supabase
     .from("bookings")
@@ -79,21 +74,14 @@ export async function GET(_request: Request, context: Context) {
     checkpoints: checkpoints ?? [],
     checkins: checkins ?? [],
   });
-}
+});
 
-export async function PATCH(request: Request, context: Context) {
+export const PATCH = withErrors(async (request: NextRequest, context: Context) => {
   const { bookingId } = await context.params;
   const supabase = await createClient();
-  if (!supabase) {
-    return jsonError(500, "missing_env", "Supabase env is not configured");
-  }
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return jsonError(401, "unauthorized", "Unauthorized");
-  }
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return jsonError(401, "unauthorized", "Unauthorized");
 
   const parsed = BookingStatusUpdateInput.safeParse(await request.json());
   if (!parsed.success) {
@@ -135,4 +123,4 @@ export async function PATCH(request: Request, context: Context) {
   }
 
   return jsonOk({ booking: data });
-}
+});

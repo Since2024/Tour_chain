@@ -1,5 +1,7 @@
+import { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { jsonError, jsonOk } from "@/lib/api/response";
+import { withErrors } from "@/lib/api/handle";
+import { jsonOk } from "@/lib/api/response";
 
 type ServiceRow = {
   id: string;
@@ -48,17 +50,11 @@ async function fetchRows(supabase: NonNullable<Awaited<ReturnType<typeof createC
   return [];
 }
 
-export async function GET(request: Request) {
+export const GET = withErrors(async (request: NextRequest) => {
   const { searchParams } = new URL(request.url);
   const routeId = searchParams.get("routeId");
 
   const supabase = await createClient();
-  if (!supabase) {
-    // Return demo services when Supabase is not configured
-    const demos = DEMO_SERVICES.map(s => ({ ...s, route_id: routeId ?? null }));
-    return jsonOk({ services: demos });
-  }
-
   const allRows = await fetchRows(supabase);
 
   // Filter by routeId if provided — but also include services with null route_id (global services)
@@ -82,4 +78,4 @@ export async function GET(request: Request) {
   }
 
   return jsonOk({ services: normalized });
-}
+});

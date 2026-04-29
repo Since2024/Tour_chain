@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import type { Session, User } from "@supabase/supabase-js";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { signIn as emailSignIn, signOut as emailSignOut, signUp as emailSignUp } from "@/lib/auth/email";
+import { classifyWalletError } from "@/lib/errors";
 
 type AppRole = "tourist" | "guide" | "admin";
 
@@ -16,7 +17,7 @@ type AuthContextValue = {
   signIn: typeof emailSignIn;
   signOut: () => Promise<void>;
   signUp: typeof emailSignUp;
-  connectWallet: () => Promise<void>;
+  connectWallet: () => Promise<{ error?: string }>;
   linkWallet: (args: { walletAddress: string; signature: string; nonce: string }) => Promise<Response>;
 };
 
@@ -35,14 +36,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     async function loadSession() {
       const { createClient } = await import("@/lib/supabase/client");
       const supabase = createClient();
-      if (!supabase) {
-        if (active) {
-          setSession(null);
-          setUser(null);
-          setRole("tourist");
-        }
-        return;
-      }
       const { data } = await supabase.auth.getSession();
       if (!active) return;
       setSession(data.session);
@@ -73,9 +66,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  const connectWallet = useCallback(async () => {
-    if (!wallet.connected) {
+  const connectWallet = useCallback(async (): Promise<{ error?: string }> => {
+    if (wallet.connected) return {};
+    try {
       await wallet.connect();
+      return {};
+    } catch (err) {
+      const { type, message } = classifyWalletError(err);
+      if (type === "rejected") return { error: message };
+      console.error("[wallet connect]", err);
+      return { error: message };
     }
   }, [wallet]);
 
@@ -116,10 +116,3 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error("useAuth must be used inside AuthProvider");
-  }
-  return context;
-}

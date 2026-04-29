@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import dynamic from "next/dynamic";
+import { haversineMeters } from "@/lib/geo";
 const InteractiveMap = dynamic(() => import("@/components/Map"), { ssr: false });
 
 type Checkpoint = {
@@ -20,6 +21,20 @@ export default function TrekPage() {
   const [checkins, setCheckins] = useState<Checkin[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+  const [userPos, setUserPos] = useState<{ lat: number; lng: number } | null>(null);
+  const watchIdRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) return;
+    watchIdRef.current = navigator.geolocation.watchPosition(
+      (pos) => setUserPos({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => {},
+      { enableHighAccuracy: true }
+    );
+    return () => {
+      if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     const load = async () => {
@@ -44,33 +59,35 @@ export default function TrekPage() {
     () => checkpoints.find((checkpoint) => !doneSet.has(checkpoint.place.id)),
     [checkpoints, doneSet],
   );
+  const distanceToNext = useMemo(() => {
+    if (!userPos || !nextCheckpoint) return null;
+    return haversineMeters(
+      userPos.lat, userPos.lng,
+      Number(nextCheckpoint.place.latitude), Number(nextCheckpoint.place.longitude)
+    );
+  }, [userPos, nextCheckpoint]);
+  const nearNextCheckpoint = distanceToNext !== null && distanceToNext <= 500;
 
   const handleCheckin = async () => {
-    if (!nextCheckpoint) return;
-    if (!navigator.geolocation) {
-      setError("Geolocation is not available");
+    if (!nextCheckpoint || !userPos) return;
+    setError(null);
+    const res = await fetch("/api/checkin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        booking_id: bookingId,
+        place_id: nextCheckpoint.place.id,
+        lat: userPos.lat,
+        lng: userPos.lng,
+      }),
+    });
+    const payload = await res.json();
+    if (!res.ok) {
+      setError(payload?.error?.message ?? (typeof payload?.error === "string" ? payload.error : null) ?? "Check-in failed");
       return;
     }
-    navigator.geolocation.getCurrentPosition(async (position) => {
-      const res = await fetch("/api/checkin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          booking_id: bookingId,
-          place_id: nextCheckpoint.place.id,
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-        }),
-      });
-      const payload = await res.json();
-      if (!res.ok) {
-        setError(payload?.error?.message ?? (typeof payload?.error === "string" ? payload.error : null) ?? "Check-in failed");
-        return;
-      }
-      setCheckins((prev) => [payload.checkin, ...prev]);
-      setError(null);
-      setInfo("Checkpoint verified");
-    });
+    setCheckins((prev) => [payload.checkin, ...prev]);
+    setInfo("Checkpoint verified");
   };
 
   const mintProof = async () => {
@@ -136,13 +153,23 @@ export default function TrekPage() {
           );
         })}
       </div>
-      <button
-        onClick={handleCheckin}
-        disabled={!nextCheckpoint}
-        className="px-5 py-3 rounded-xl bg-himalayan-blue text-white font-bold disabled:opacity-50"
-      >
-        Check in at next checkpoint
-      </button>
+      <div className="space-y-2">
+        {nextCheckpoint && !userPos && (
+          <p className="text-sm text-himalayan-blue/60">Waiting for GPS location…</p>
+        )}
+        {nextCheckpoint && userPos && !nearNextCheckpoint && distanceToNext !== null && (
+          <p className="text-sm text-amber-600">
+            {Math.round(distanceToNext)}m away from {nextCheckpoint.place.name} (need ≤500m)
+          </p>
+        )}
+        <button
+          onClick={handleCheckin}
+          disabled={!nextCheckpoint || !nearNextCheckpoint}
+          className="px-5 py-3 rounded-xl bg-himalayan-blue text-white font-bold disabled:opacity-50"
+        >
+          Check in at next checkpoint
+        </button>
+      </div>
       <button
         onClick={mintProof}
         disabled={Boolean(nextCheckpoint)}
