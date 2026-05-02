@@ -379,7 +379,7 @@ export default function Home() {
                 transition={{ duration: 0.5 }}
                 className="absolute inset-0 flex flex-col items-center justify-center"
               >
-                <p className="text-summit-white/90 text-lg italic mb-4 max-w-xl">"{t.text}"</p>
+                <p className="text-summit-white/90 text-lg italic mb-4 max-w-xl">&ldquo;{t.text}&rdquo;</p>
                 <div className="flex items-center gap-2">
                   <span className="text-xl">{t.country}</span>
                   <span className="text-summit-white font-bold">{t.name}</span>

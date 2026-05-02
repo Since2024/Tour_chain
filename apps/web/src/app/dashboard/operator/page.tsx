@@ -310,7 +310,7 @@ export default function OperatorDashboard() {
                   </div>
                   <StarRating rating={r.rating} />
                 </div>
-                <p className="text-sm text-gray-600 italic">"{r.text}"</p>
+                <p className="text-sm text-gray-600 italic">&ldquo;{r.text}&rdquo;</p>
               </div>
             ))}
           </div>

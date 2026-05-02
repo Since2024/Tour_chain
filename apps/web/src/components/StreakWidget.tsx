@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Flame, Snowflake, CheckCircle2, Zap } from "lucide-react";
+import { Snowflake, CheckCircle2, Zap } from "lucide-react";
 
 type Streak = {
   streak_type: string;
@@ -67,7 +67,6 @@ export function StreakWidget() {
     void load();
   }, []);
 
-  const loginStreak = streaks.find((s) => s.streak_type === "login");
   const topStreak = streaks.reduce((best, s) => s.current_streak > (best?.current_streak ?? 0) ? s : best, streaks[0]);
 
   const handleCompleteDaily = async () => {

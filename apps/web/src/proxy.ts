@@ -1,20 +1,24 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
-import { publicEnv } from "@/lib/env";
 
-const AUTH_PREFIXES = ["/dashboard", "/book", "/trek", "/profile"];
-const ADMIN_PREFIX = "/admin";
+const PROTECTED = ["/dashboard", "/book", "/trek", "/profile", "/admin"];
 
-function isProtected(pathname: string) {
-  return AUTH_PREFIXES.some((prefix) => pathname.startsWith(prefix)) || pathname.startsWith(ADMIN_PREFIX);
-}
+export async function middleware(request: NextRequest) {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-export async function proxy(request: NextRequest) {
+  // If Supabase is not configured (e.g. env vars missing in this environment),
+  // pass the request through — auth will fail at the page level instead of
+  // crashing the Edge Worker for every route.
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return NextResponse.next({ request });
+  }
+
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(
-    publicEnv.NEXT_PUBLIC_SUPABASE_URL,
-    publicEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    supabaseUrl,
+    supabaseAnonKey,
     {
       cookies: {
         getAll() {
@@ -28,39 +32,30 @@ export async function proxy(request: NextRequest) {
           );
         },
       },
-    });
-  } catch {
-    // @supabase/ssr adapter incompatibility — fall back to redirect-only guard
-    const pathname = request.nextUrl.pathname;
-    if (isProtected(pathname)) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/login";
-      return NextResponse.redirect(url);
-    }
-    return response;
+    },
+  );
+
+  const { data: { user } } = await supabase.auth.getUser();
+  const { pathname } = request.nextUrl;
+
+  const isProtected = PROTECTED.some((p) => pathname.startsWith(p));
+  if (isProtected && !user) {
+    const loginUrl = request.nextUrl.clone();
+    loginUrl.pathname = "/login";
+    loginUrl.searchParams.set("next", pathname);
+    return NextResponse.redirect(loginUrl);
   }
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const pathname = request.nextUrl.pathname;
-  if (!isProtected(pathname)) {
-    return response;
-  }
-
-  if (!user) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    return NextResponse.redirect(url);
-  }
-
-  if (pathname.startsWith(ADMIN_PREFIX)) {
-    const { data: profile } = await supabase.from("users").select("role").eq("id", user.id).maybeSingle();
+  if (pathname.startsWith("/admin") && user) {
+    const { data: profile } = await supabase
+      .from("users")
+      .select("role")
+      .eq("id", user.id)
+      .single();
     if (profile?.role !== "admin") {
-      const url = request.nextUrl.clone();
-      url.pathname = "/dashboard";
-      return NextResponse.redirect(url);
+      const dashUrl = request.nextUrl.clone();
+      dashUrl.pathname = "/dashboard";
+      return NextResponse.redirect(dashUrl);
     }
   }
 
@@ -68,5 +63,7 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|api/).*)",
+  ],
 };

@@ -3,9 +3,9 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useMemo, useState, useRef } from "react";
-import dynamic from "next/dynamic";
-
-const NAVY  = "#1a2b4a";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { Search, X, Grid3X3, List, SlidersHorizontal, Heart, Clock, TrendingUp, Mountain, Wind, Thermometer, ChevronRight, Star, Shield, Zap, ArrowRight } from "lucide-react";
+import { DEMO_ROUTES } from "@/lib/demo/catalog";const NAVY  = "#1a2b4a";
 const GREEN = "#2d6a4f";
 
 type RouteItem = {
@@ -305,11 +305,9 @@ export default function ExplorePage() {
     const load = async () => {
       const routesRes = await fetch("/api/routes", { cache: "force-cache" });
       const routesJson = await routesRes.json();
-      setRoutes((routesJson.routes ?? []) as RouteItem[]);
-      if (placesRes?.ok) {
-        const placesJson = await placesRes.json();
-        setPlaces((placesJson.places ?? []) as PlaceItem[]);
-      }
+      const dbRoutes = (routesJson.routes ?? []) as RouteItem[];
+      const finalRoutes = dbRoutes.length >= 3 ? dbRoutes : [...dbRoutes, ...DEMO_ROUTES].slice(0, 12);
+      setRoutes(finalRoutes);
       setLoading(false);
       const uniqueRegions = [...new Set(finalRoutes.map((r) => r.region))];
       uniqueRegions.forEach((reg) => {

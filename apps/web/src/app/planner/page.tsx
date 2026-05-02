@@ -256,7 +256,7 @@ export default function PlannerPage() {
                         />
                       </div>
 
-                      <p className="text-white/50 text-sm mt-3 italic">"{rec.why}"</p>
+                      <p className="text-white/50 text-sm mt-3 italic">&ldquo;{rec.why}&rdquo;</p>
                     </div>
 
                     {/* Expanded details */}

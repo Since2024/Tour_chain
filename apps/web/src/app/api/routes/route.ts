@@ -2,7 +2,6 @@ import { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { withErrors } from "@/lib/api/handle";
 import { jsonError, jsonOk } from "@/lib/api/response";
-import { NextResponse } from "next/server";
 
 export const GET = withErrors(async (_req: NextRequest) => {
   const supabase = await createClient();

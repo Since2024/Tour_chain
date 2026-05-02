@@ -133,7 +133,7 @@ export function ShareCard({ mode, routeName, xp = 0, rank, mintAddress, userId }
             </div>
             <div className="bg-orange-50 border border-orange-100 rounded-xl p-3 text-center">
               <p className="text-lg font-bold text-orange-700">{REFERRAL_REWARDS.referee_discount_pct}% off</p>
-              <p className="text-xs text-orange-600">Friend's first trek</p>
+              <p className="text-xs text-orange-600">Friend&apos;s first trek</p>
             </div>
           </div>
         </div>

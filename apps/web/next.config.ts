@@ -7,14 +7,19 @@ const nextConfig: NextConfig = {
     unoptimized: true,
     remotePatterns: [
       {
-        protocol: 'https',
-        hostname: 'images.unsplash.com',
+        protocol: "https",
+        hostname: "images.unsplash.com",
       },
     ],
   },
+  // Turbopack config (Next.js 16 default bundler)
+  turbopack: {
+    resolveAlias: {
+      "pino-pretty": { browser: false, default: false },
+    },
+  },
+  // Keep webpack config for non-Turbopack builds (CI/Vercel)
   webpack(config) {
-    // pino-pretty is an optional dev dep of pino, pulled in via WalletConnect.
-    // It is never used at runtime — stub it to silence the build warning.
     config.resolve.alias = {
       ...config.resolve.alias,
       "pino-pretty": false,
