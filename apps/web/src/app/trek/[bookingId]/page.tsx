@@ -3,7 +3,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import dynamic from "next/dynamic";
+import { MapPin, CheckCircle2 } from "lucide-react";
 import { haversineMeters } from "@/lib/geo";
+import { WeatherWidget } from "@/components/WeatherWidget";
+import { SOSButton } from "@/components/SOSButton";
+import { CheckinButton } from "@/components/CheckinButton";
 const InteractiveMap = dynamic(() => import("@/components/Map"), { ssr: false });
 
 type Checkpoint = {
@@ -232,7 +236,7 @@ export default function TrekPage() {
                     bookingId={bookingId}
                     placeId={cp.place.id}
                     placeName={cp.place.name}
-                    onSuccess={(checkin) => {
+                    onSuccess={(checkin: Checkin) => {
                       setCheckins((prev) => [{ ...checkin, place_id: cp.place.id }, ...prev]);
                       setInfo(`✅ Checked in at ${cp.place.name}`);
                     }}
