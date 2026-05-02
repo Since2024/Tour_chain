@@ -31,6 +31,31 @@ export async function proxy(request: NextRequest) {
         },
       },
     );
+
+    const { data: { user } } = await supabase.auth.getUser();
+
+    const pathname = request.nextUrl.pathname;
+    if (!isProtected(pathname)) {
+      return response;
+    }
+
+    if (!user) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      return NextResponse.redirect(url);
+    }
+
+    if (pathname.startsWith(ADMIN_PREFIX)) {
+      const { data: profile } = await supabase.from("users").select("role").eq("id", user.id).maybeSingle();
+      if (profile?.role !== "admin") {
+        const url = request.nextUrl.clone();
+        url.pathname = "/dashboard";
+        return NextResponse.redirect(url);
+      }
+    }
+
+    return response;
+  } catch {
     // @supabase/ssr adapter incompatibility — fall back to redirect-only guard
     const pathname = request.nextUrl.pathname;
     if (isProtected(pathname)) {
@@ -40,32 +65,6 @@ export async function proxy(request: NextRequest) {
     }
     return response;
   }
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const pathname = request.nextUrl.pathname;
-  if (!isProtected(pathname)) {
-    return response;
-  }
-
-  if (!user) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    return NextResponse.redirect(url);
-  }
-
-  if (pathname.startsWith(ADMIN_PREFIX)) {
-    const { data: profile } = await supabase.from("users").select("role").eq("id", user.id).maybeSingle();
-    if (profile?.role !== "admin") {
-      const url = request.nextUrl.clone();
-      url.pathname = "/dashboard";
-      return NextResponse.redirect(url);
-    }
-  }
-
-  return response;
 }
 
 export const config = {
